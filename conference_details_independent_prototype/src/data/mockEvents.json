@@ -1,0 +1,47 @@
+[
+  {
+    "id": "oa-icml-2026",
+    "title": "International Conference on Machine Learning (ICML)",
+    "description": "A premier gathering for machine learning researchers and practitioners.",
+    "start": "2026-07-12T09:00:00+05:30",
+    "end": "2026-07-18T18:00:00+05:30",
+    "timezone": "Asia/Kolkata",
+    "source": "openalex",
+    "url": "https://openalex.org",
+    "cfp_deadline": "2026-02-15T23:59:00+05:30",
+    "tags": ["ML", "AI", "Deep Learning"],
+    "fetched_at": "2026-01-31T12:00:00+05:30",
+    "venue": "Mumbai, India",
+    "region": "Asia"
+  },
+  {
+    "id": "cr-neurips-2026",
+    "title": "NeurIPS",
+    "description": "Annual conference on neural information processing systems.",
+    "start": "2026-12-01T09:00:00+05:30",
+    "end": "2026-12-06T18:00:00+05:30",
+    "timezone": "Asia/Kolkata",
+    "source": "crossref",
+    "url": "https://www.crossref.org",
+    "cfp_deadline": "2026-05-20T23:59:00+05:30",
+    "tags": ["AI", "Neural Nets", "Systems"],
+    "fetched_at": "2026-01-31T12:00:00+05:30",
+    "venue": "Singapore",
+    "region": "Asia"
+  },
+  {
+    "id": "oa-sec-2026",
+    "title": "IEEE Symposium on Security & Privacy",
+    "description": "Premier forum for security researchers and practitioners.",
+    "start": "2026-05-18T09:00:00+05:30",
+    "end": "2026-05-21T18:00:00+05:30",
+    "timezone": "Asia/Kolkata",
+    "source": "openalex",
+    "url": "https://openalex.org",
+    "cfp_deadline": "2026-01-10T23:59:00+05:30",
+    "tags": ["Security", "Privacy"],
+    "fetched_at": "2026-01-31T12:00:00+05:30",
+    "venue": "Bangalore, India",
+    "region": "Asia"
+  }
+]

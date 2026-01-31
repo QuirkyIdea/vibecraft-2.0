@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+  color: #1d202b;
+  background-color: #f5f6f8;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #f5f6f8;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Calendar styles */
+.fc {
+  --fc-page-bg-color: transparent;
+  --fc-border-color: rgba(31, 55, 176, 0.08);
+  --fc-today-bg-color: rgba(75, 108, 255, 0.12);
+  --fc-event-bg-color: #4b6cff;
+  --fc-event-border-color: #4b6cff;
+  --fc-event-text-color: #f7f8fb;
+  font-family: inherit;
+}
+
+.fc .fc-toolbar-title {
+  color: #1d202b;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.fc .fc-col-header-cell-cushion {
+  font-weight: 600;
+  color: #3a4156;
+}
+
+.fc .fc-daygrid-day-number {
+  font-size: 0.75rem;
+  color: #6b768f;
+}
+
+.fc .fc-daygrid-day-frame {
+  transition: background-color 0.2s ease;
+}
+
+.fc .fc-daygrid-day:hover .fc-daygrid-day-frame {
+  background-color: rgba(75, 108, 255, 0.06);
+}
+
+.fc .fc-scrollgrid {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.fc .fc-scrollgrid-section > td {
+  border-right: 1px solid rgba(31, 55, 176, 0.06);
+}
