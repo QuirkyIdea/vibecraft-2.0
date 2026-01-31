@@ -19,7 +19,7 @@ export const WorkflowProvider = ({ children }) => {
     // New Project Creation Flow State
     // Stages: 'IDLE', 'TYPE', 'IDEA', 'UPLOAD', 'SEGREGATION', 'PIPELINE', 'ACTIVE'
     const [creationStage, setCreationStage] = useState('IDLE');
-    const [newProjectData, setNewProjectData] = useState({ title: '', description: '', domain: null, projectType: 'RESEARCH' });
+    const [newProjectData, setNewProjectData] = useState({ title: '', description: '', outcome: '', domain: null, projectType: 'RESEARCH' });
 
     const navigateTo = (view) => {
         setCurrentView(view);

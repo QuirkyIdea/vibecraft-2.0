@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { useWorkflow } from '../../context/WorkflowContext';
 import CommandCenter from '../CommandCenter';
 import PlatformOverview from '../PlatformOverview';
 import ResearchStudio from '../ResearchStudio';
