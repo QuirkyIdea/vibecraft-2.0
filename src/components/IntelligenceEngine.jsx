@@ -100,17 +100,18 @@ const IntelligenceEngine = () => {
 
                     <div className="mt-6 space-y-3">
                         <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">Similarity Detection</span>
-                            <span className="font-semibold text-ice-600">98.7%</span>
+                            <span className="text-gray-600">Similarity Engine</span>
+                            <span className="font-semibold text-green-600">Ready</span>
                         </div>
-                        <div className="h-2 bg-ice-100 rounded-full overflow-hidden">
+                        <div className="h-2 bg-green-100 rounded-full overflow-hidden">
                             <motion.div
-                                className="h-full bg-gradient-to-r from-ice-400 to-blue-600"
+                                className="h-full bg-gradient-to-r from-green-400 to-green-600"
                                 initial={{ width: 0 }}
-                                animate={isInView ? { width: '98.7%' } : {}}
+                                animate={isInView ? { width: '100%' } : {}}
                                 transition={{ delay: 1, duration: 1.5 }}
                             />
                         </div>
+                        <p className="text-xs text-gray-500">Scores computed per project. View results in your project.</p>
                     </div>
                 </motion.div>
 
@@ -181,14 +182,15 @@ const IntelligenceEngine = () => {
 
                     <div className="mt-6 grid grid-cols-2 gap-4">
                         <div className="text-center">
-                            <div className="text-3xl font-bold text-gradient">2.4M+</div>
-                            <div className="text-sm text-gray-600">Papers Analyzed</div>
+                            <div className="text-2xl font-bold text-gray-700">Semantic Scholar</div>
+                            <div className="text-sm text-gray-600">Research Papers</div>
                         </div>
                         <div className="text-center">
-                            <div className="text-3xl font-bold text-gradient">850K+</div>
-                            <div className="text-sm text-gray-600">Patents Indexed</div>
+                            <div className="text-2xl font-bold text-gray-700">USPTO</div>
+                            <div className="text-sm text-gray-600">Patent Database</div>
                         </div>
                     </div>
+                    <p className="text-xs text-gray-500 mt-4 text-center">Evidence retrieved dynamically per project search.</p>
                 </motion.div>
             </div>
 

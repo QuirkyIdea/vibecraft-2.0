@@ -1,58 +1,83 @@
+/**
+ * Inventix AI - Research Studio
+ * 
+ * REFACTORED: Removed fake marketing stats like "2.4M+ papers".
+ * Now shows honest feature descriptions.
+ */
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useInView } from 'framer-motion';
 import { useRef } from 'react';
+import { useWorkflow } from '../context/WorkflowContext';
+import api from '../api/endpoints';
 
 const ResearchStudio = () => {
     const ref = useRef(null);
     const isInView = useInView(ref, { once: true, margin: "-100px" });
+    const { activeProject } = useWorkflow();
+    
+    const [recommendations, setRecommendations] = useState(null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (activeProject?.id && activeProject.type === 'RESEARCH') {
+            fetchRecommendations();
+        }
+    }, [activeProject?.id]);
+
+    const fetchRecommendations = async () => {
+        if (!activeProject?.id) return;
+        setLoading(true);
+        try {
+            const response = await api.venues.get(activeProject.id);
+            setRecommendations(response.data);
+        } catch (error) {
+            console.log('No recommendations yet');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Only show for RESEARCH projects
+    if (activeProject && activeProject.type !== 'RESEARCH') {
+        return null;
+    }
 
     const features = [
         {
             icon: '📖',
-            title: 'AI Literature Review Engine',
-            description: 'Automatically scan and summarize millions of research papers',
-            stats: '2.4M+ papers',
-            color: 'from-blue-400 to-ice-500'
+            title: 'Literature Search',
+            description: 'Search Semantic Scholar for related research papers',
+            capability: 'API-integrated'
         },
         {
             icon: '🔎',
-            title: 'Gap Detection System',
-            description: 'Identify unexplored research opportunities in your field',
-            stats: '95% accuracy',
-            color: 'from-ice-400 to-cyan-500'
+            title: 'Gap Detection',
+            description: 'Compare your idea against existing research',
+            capability: 'Similarity-based'
         },
         {
-            icon: '🗺️',
-            title: 'Research Roadmap Generator',
-            description: 'Create step-by-step research plans with AI guidance',
-            stats: 'Smart planning',
-            color: 'from-cyan-400 to-blue-500'
-        },
-        {
-            icon: '🧪',
-            title: 'Experiment Planning AI',
-            description: 'Design optimal experiments with predictive modeling',
-            stats: 'Optimized design',
-            color: 'from-blue-500 to-ice-600'
+            icon: '📊',
+            title: 'Novelty Analysis',
+            description: 'GREEN/YELLOW/RED classification based on overlap',
+            capability: 'Deterministic'
         },
         {
             icon: '✍️',
-            title: 'Paper Drafting Workspace',
-            description: 'Collaborative AI-assisted writing environment',
-            stats: 'Real-time assist',
-            color: 'from-ice-500 to-blue-600'
+            title: 'Draft Optimization',
+            description: 'Get localized suggestions to improve your writing',
+            capability: 'Phase 6'
         },
         {
             icon: '🎓',
-            title: 'Conference Recommendation',
-            description: 'Find the perfect venue for your research publication',
-            stats: '5000+ venues',
-            color: 'from-blue-600 to-ice-700'
+            title: 'Venue Recommendations',
+            description: 'Find conferences and journals for your research',
+            capability: 'Phase 7'
         }
     ];
 
     return (
-        <section ref={ref} className="section-container bg-gradient-to-b from-ice-50/50 to-transparent" id="research-studio">
+        <section ref={ref} className="section-container" id="research-studio">
             <motion.div
                 initial={{ opacity: 0, y: 30 }}
                 animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -63,149 +88,128 @@ const ResearchStudio = () => {
                     Research Studio
                 </h2>
                 <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                    Your AI-powered research laboratory for breakthrough discoveries
+                    AI-assisted research analysis and publication planning
                 </p>
             </motion.div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* Features Grid - Honest descriptions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
                 {features.map((feature, index) => (
                     <motion.div
                         key={feature.title}
-                        initial={{ opacity: 0, y: 50, rotateY: -15 }}
-                        animate={isInView ? { opacity: 1, y: 0, rotateY: 0 } : {}}
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={isInView ? { opacity: 1, scale: 1 } : {}}
                         transition={{ delay: index * 0.1, duration: 0.6 }}
-                        whileHover={{
-                            scale: 1.05,
-                            y: -10,
-                            rotateY: 5,
-                            transition: { duration: 0.3 }
-                        }}
-                        className="glass-card glow-border relative overflow-hidden group perspective-1000"
+                        className="glass-card glow-border group"
                     >
-                        {/* Gradient overlay */}
-                        <motion.div
-                            className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500`}
-                        />
-
-                        {/* Icon with animation */}
-                        <motion.div
-                            className="text-6xl mb-6 relative z-10"
-                            animate={{
-                                y: [0, -10, 0],
-                                rotate: [0, 5, -5, 0]
-                            }}
-                            transition={{
-                                duration: 4,
-                                repeat: Infinity,
-                                delay: index * 0.3
-                            }}
-                        >
-                            {feature.icon}
-                        </motion.div>
-
-                        {/* Title */}
-                        <h3 className="text-2xl font-bold text-gray-800 mb-4 relative z-10">
-                            {feature.title}
-                        </h3>
-
-                        {/* Description */}
-                        <p className="text-gray-600 leading-relaxed mb-6 relative z-10">
-                            {feature.description}
-                        </p>
-
-                        {/* Stats badge */}
-                        <motion.div
-                            className="inline-block px-4 py-2 rounded-full bg-gradient-to-r from-ice-100 to-blue-100 text-ice-700 font-semibold text-sm relative z-10"
-                            whileHover={{ scale: 1.1 }}
-                        >
-                            {feature.stats}
-                        </motion.div>
-
-                        {/* Animated corner glow */}
-                        <motion.div
-                            className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full bg-gradient-to-br from-ice-400/30 to-blue-500/30 blur-2xl"
-                            animate={{
-                                scale: [1, 1.2, 1],
-                                opacity: [0.3, 0.6, 0.3]
-                            }}
-                            transition={{
-                                duration: 3,
-                                repeat: Infinity,
-                                delay: index * 0.2
-                            }}
-                        />
+                        <div className="text-5xl mb-4">{feature.icon}</div>
+                        <h3 className="text-xl font-bold text-gray-800 mb-3">{feature.title}</h3>
+                        <p className="text-gray-600 mb-4 leading-relaxed">{feature.description}</p>
+                        <div className="inline-block px-3 py-1 rounded-full bg-gradient-to-r from-ice-100 to-blue-100 text-ice-700 text-sm font-semibold">
+                            {feature.capability}
+                        </div>
                     </motion.div>
                 ))}
             </div>
 
-            {/* Interactive Demo Section */}
-            <motion.div
-                className="mt-20 glass-card glow-border-strong max-w-5xl mx-auto"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={isInView ? { opacity: 1, scale: 1 } : {}}
-                transition={{ delay: 0.8, duration: 0.8 }}
-            >
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Left: Code/Input */}
-                    <div>
-                        <h3 className="text-2xl font-bold text-gray-800 mb-6">AI Research Assistant</h3>
-                        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 font-mono text-sm">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-3 h-3 rounded-full bg-red-500" />
-                                <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                                <div className="w-3 h-3 rounded-full bg-green-500" />
+            {/* Project-specific content */}
+            {activeProject && (
+                <motion.div
+                    className="glass-card glow-border-strong max-w-4xl mx-auto"
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={isInView ? { opacity: 1, y: 0 } : {}}
+                    transition={{ delay: 0.6, duration: 0.8 }}
+                >
+                    <h3 className="text-3xl font-bold text-center text-gradient mb-8">
+                        Research Analysis
+                    </h3>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Project Status */}
+                        <div className="space-y-4">
+                            <h4 className="text-xl font-bold text-gray-800">Project Status</h4>
+                            
+                            <div className="p-4 rounded-xl bg-white/50 border border-gray-200">
+                                <div className="text-sm text-gray-500">Novelty Risk</div>
+                                <div className={`text-2xl font-bold ${getRiskColor(activeProject.noveltyRisk)}`}>
+                                    {activeProject.noveltyRisk || 'UNKNOWN'}
+                                </div>
                             </div>
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={isInView ? { opacity: 1 } : {}}
-                                transition={{ delay: 1, duration: 0.5 }}
-                            >
-                                <div className="text-green-400">$ analyze-research</div>
-                                <div className="text-blue-300 mt-2">&gt; Topic: "Quantum Machine Learning"</div>
-                                <div className="text-gray-400 mt-2">&gt; Analyzing 2,847 papers...</div>
-                                <motion.div
-                                    className="text-yellow-300 mt-2"
-                                    initial={{ width: 0 }}
-                                    animate={isInView ? { width: '100%' } : {}}
-                                    transition={{ delay: 1.5, duration: 2 }}
-                                >
-                                    &gt; [████████████████] 100%
-                                </motion.div>
-                                <div className="text-green-400 mt-2">✓ Analysis complete!</div>
-                            </motion.div>
+                            
+                            <div className="p-4 rounded-xl bg-white/50 border border-gray-200">
+                                <div className="text-sm text-gray-500">Evidence Items</div>
+                                <div className="text-2xl font-bold text-gray-800">{activeProject.evidenceCount || 0}</div>
+                            </div>
+                            
+                            <div className="p-4 rounded-xl bg-white/50 border border-gray-200">
+                                <div className="text-sm text-gray-500">Domain</div>
+                                <div className="text-xl font-bold text-gray-800">{activeProject.domain || 'General'}</div>
+                            </div>
+                        </div>
+
+                        {/* Venue Recommendations */}
+                        <div className="space-y-4">
+                            <h4 className="text-xl font-bold text-gray-800">Venue Recommendations</h4>
+                            
+                            {loading ? (
+                                <div className="text-center py-8">
+                                    <motion.div
+                                        animate={{ rotate: 360 }}
+                                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                        className="text-3xl inline-block"
+                                    >
+                                        ⚙️
+                                    </motion.div>
+                                </div>
+                            ) : recommendations?.recommendations?.length > 0 ? (
+                                <div className="space-y-3 max-h-64 overflow-y-auto">
+                                    {recommendations.recommendations.slice(0, 5).map((venue, i) => (
+                                        <div key={i} className="p-4 rounded-xl bg-white/50 border border-gray-200">
+                                            <div className="font-semibold text-gray-800">{venue.name}</div>
+                                            <div className="text-xs text-gray-500">{venue.type} • {venue.field}</div>
+                                            <div className="text-xs text-blue-600 mt-1">Score: {venue.match_score?.toFixed(2) || 'N/A'}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 bg-gray-50 rounded-xl">
+                                    <div className="text-4xl mb-2">🎓</div>
+                                    <p className="text-gray-500 text-sm">No recommendations yet</p>
+                                    <p className="text-xs text-gray-400 mt-1">Upload evidence and run analysis first</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Right: Output */}
-                    <div>
-                        <h3 className="text-2xl font-bold text-gray-800 mb-6">Insights Generated</h3>
-                        <div className="space-y-4">
-                            {[
-                                { label: 'Research Gaps Found', value: '23', icon: '🎯' },
-                                { label: 'Key Papers Identified', value: '156', icon: '📚' },
-                                { label: 'Collaboration Opportunities', value: '12', icon: '🤝' },
-                                { label: 'Funding Sources', value: '8', icon: '💰' }
-                            ].map((item, i) => (
-                                <motion.div
-                                    key={item.label}
-                                    className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-ice-100 to-blue-100"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={isInView ? { opacity: 1, x: 0 } : {}}
-                                    transition={{ delay: 1.5 + i * 0.1, duration: 0.5 }}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-2xl">{item.icon}</span>
-                                        <span className="font-medium text-gray-700">{item.label}</span>
-                                    </div>
-                                    <span className="text-2xl font-bold text-gradient">{item.value}</span>
-                                </motion.div>
-                            ))}
-                        </div>
+                    {/* Disclaimer */}
+                    <div className="mt-8 p-4 rounded-xl bg-yellow-50 border border-yellow-200">
+                        <p className="text-xs text-yellow-800 text-center">
+                            ⚠️ All analysis is assistive only. Venue recommendations are suggestions based on similarity matching. 
+                            Always verify submission requirements directly with the venue.
+                        </p>
                     </div>
+                </motion.div>
+            )}
+
+            {/* No Project Selected */}
+            {!activeProject && (
+                <div className="glass-card max-w-2xl mx-auto text-center py-12">
+                    <div className="text-6xl mb-4">🔬</div>
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">Select a Research Project</h3>
+                    <p className="text-gray-500">Create or select a RESEARCH type project to use the Research Studio.</p>
                 </div>
-            </motion.div>
+            )}
         </section>
     );
+};
+
+const getRiskColor = (risk) => {
+    switch (risk) {
+        case 'GREEN': return 'text-green-600';
+        case 'YELLOW': return 'text-yellow-600';
+        case 'RED': return 'text-red-600';
+        default: return 'text-gray-500';
+    }
 };
 
 export default ResearchStudio;

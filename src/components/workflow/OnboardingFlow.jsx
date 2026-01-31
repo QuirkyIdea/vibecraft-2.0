@@ -1,4 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+/**
+ * Inventix AI - Onboarding Flow
+ * 
+ * REFACTORED: Real API integration for project creation and file upload.
+ * No more simulated delays or fake progress bars.
+ */
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWorkflow } from '../../context/WorkflowContext';
 
@@ -15,40 +21,36 @@ const DOMAINS = [
 const OnboardingFlow = () => {
     const {
         creationStage,
-        startNewProject, // We reuse this to update data
-        startAnalysis, // Renamed to confirmProjectCreation in context potentially? No, we need to map it.
         newProjectData,
         setNewProjectData,
-        // We need to map the old "startUpload" to just updating local state or context
         setCreationStage,
-        confirmProjectCreation
+        confirmProjectCreation,
+        uploadFile
     } = useWorkflow();
 
-    // Map the context functions to what the UI expects
-    // Logic: 
-    // Step 1 (Idea) calls onNext -> Updates data, sets stage to UPLOAD
-    // Step 2 (Upload) calls onNext -> Sets stage to SEGREGATION (animations start)
-
-    // We already have startNewProject which sets stage to UPLOAD. 
-    // We need a helper to update data and move to UPLOAD.
+    const [error, setError] = useState(null);
 
     const handleTypeSelection = (type) => {
         setNewProjectData(prev => ({ ...prev, projectType: type }));
         setCreationStage('IDEA');
-    }
+    };
 
-    const handleIdeaSubmit = (data) => {
-        setNewProjectData(prev => ({ ...prev, ...data }));
+    const handleIdeaSubmit = () => {
+        if (!newProjectData.title || !newProjectData.domain) {
+            setError('Please fill in all required fields');
+            return;
+        }
+        setError(null);
         setCreationStage('UPLOAD');
     };
 
-    const handleUploadComplete = (files) => {
-        // Trigger the animation pipeline
-        setCreationStage('SEGREGATION');
-        // The PipelineAnimation component (rendered by DashboardLayout) will handle the timeout -> Confirm
-    };
+    if (creationStage === 'PROCESSING') {
+        return <ProcessingView />;
+    }
 
-    if (creationStage === 'SEGREGATION' || creationStage === 'PIPELINE') return null; // Handled by PipelineAnimation
+    if (creationStage === 'IDLE' || !['TYPE', 'IDEA', 'UPLOAD'].includes(creationStage)) {
+        return null;
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-ice-50 to-blue-50/30 p-6 z-50 fixed inset-0">
@@ -64,13 +66,17 @@ const OnboardingFlow = () => {
                             setIdeaData={setNewProjectData}
                             domain={newProjectData.domain}
                             setDomain={(d) => setNewProjectData(prev => ({ ...prev, domain: d }))}
-                            onNext={() => handleIdeaSubmit(newProjectData)}
+                            onNext={handleIdeaSubmit}
+                            error={error}
                         />
                     )}
                     {creationStage === 'UPLOAD' && (
                         <EvidenceUpload
                             key="upload"
-                            onNext={handleUploadComplete}
+                            projectData={newProjectData}
+                            uploadFile={uploadFile}
+                            confirmProjectCreation={confirmProjectCreation}
+                            setCreationStage={setCreationStage}
                         />
                     )}
                 </AnimatePresence>
@@ -78,6 +84,26 @@ const OnboardingFlow = () => {
         </div>
     );
 };
+
+const ProcessingView = () => (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-white via-ice-50 to-blue-50/30 p-6 z-50 fixed inset-0">
+        <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass-card glow-border-strong p-10 text-center max-w-md"
+        >
+            <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="text-6xl mb-6"
+            >
+                ⚙️
+            </motion.div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Creating Project...</h2>
+            <p className="text-gray-500">Connecting to backend and initializing your workspace.</p>
+        </motion.div>
+    </div>
+);
 
 const TypeSelection = ({ onSelect }) => (
     <motion.div
@@ -115,7 +141,7 @@ const TypeSelection = ({ onSelect }) => (
     </motion.div>
 );
 
-const IdeaInput = ({ ideaData, setIdeaData, domain, setDomain, onNext }) => {
+const IdeaInput = ({ ideaData, setIdeaData, domain, setDomain, onNext, error }) => {
     return (
         <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -128,10 +154,16 @@ const IdeaInput = ({ ideaData, setIdeaData, domain, setDomain, onNext }) => {
             </h1>
             <p className="text-gray-500 mb-8">Define your problem statement and select a domain to configure the AI.</p>
 
+            {error && (
+                <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                    ⚠️ {error}
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                 <div className="space-y-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Research Title / Concept Name</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Research Title / Concept Name *</label>
                         <input
                             type="text"
                             className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
@@ -141,7 +173,7 @@ const IdeaInput = ({ ideaData, setIdeaData, domain, setDomain, onNext }) => {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Problem Statement</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Problem Statement / Idea Description</label>
                         <textarea
                             className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all h-32 resize-none"
                             placeholder="Describe the core problem you are solving..."
@@ -149,20 +181,10 @@ const IdeaInput = ({ ideaData, setIdeaData, domain, setDomain, onNext }) => {
                             onChange={e => setIdeaData({ ...ideaData, description: e.target.value })}
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Expected Outcome</label>
-                        <input
-                            type="text"
-                            className="w-full bg-white/50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
-                            placeholder="e.g., Increase efficiency by 20%"
-                            value={ideaData.outcome}
-                            onChange={e => setIdeaData({ ...ideaData, outcome: e.target.value })}
-                        />
-                    </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-4">Select Domain Scope</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-4">Select Domain Scope *</label>
                     <div className="grid grid-cols-2 gap-3">
                         {DOMAINS.map(d => (
                             <motion.button
@@ -171,12 +193,12 @@ const IdeaInput = ({ ideaData, setIdeaData, domain, setDomain, onNext }) => {
                                 whileTap={{ scale: 0.98 }}
                                 onClick={() => setDomain(d.id)}
                                 className={`p-4 rounded-xl border text-left transition-all ${domain === d.id
-                                    ? `bg-${d.color}-50 border-${d.color}-500 ring-2 ring-${d.color}-200`
+                                    ? `bg-blue-50 border-blue-500 ring-2 ring-blue-200`
                                     : 'bg-white/40 border-gray-200 hover:bg-white/80'
                                     }`}
                             >
                                 <span className="text-2xl mb-2 block">{d.icon}</span>
-                                <span className={`text-sm font-semibold ${domain === d.id ? `text-${d.color}-700` : 'text-gray-600'}`}>
+                                <span className={`text-sm font-semibold ${domain === d.id ? 'text-blue-700' : 'text-gray-600'}`}>
                                     {d.label}
                                 </span>
                             </motion.button>
@@ -199,10 +221,11 @@ const IdeaInput = ({ ideaData, setIdeaData, domain, setDomain, onNext }) => {
     );
 };
 
-const EvidenceUpload = ({ onNext }) => {
+const EvidenceUpload = ({ projectData, uploadFile, confirmProjectCreation, setCreationStage }) => {
     const [files, setFiles] = useState([]);
     const [isDragging, setIsDragging] = useState(false);
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
+    const [error, setError] = useState(null);
     const fileInputRef = useRef(null);
 
     const handleDragOver = (e) => {
@@ -219,58 +242,73 @@ const EvidenceUpload = ({ onNext }) => {
         e.preventDefault();
         setIsDragging(false);
         const droppedFiles = Array.from(e.dataTransfer.files);
-        if (droppedFiles.length > 0) processFiles(droppedFiles);
+        if (droppedFiles.length > 0) addFiles(droppedFiles);
     };
 
     const handleFileSelect = (e) => {
         if (e.target.files) {
             const selectedFiles = Array.from(e.target.files);
-            if (selectedFiles.length > 0) processFiles(selectedFiles);
+            if (selectedFiles.length > 0) addFiles(selectedFiles);
         }
     };
 
-    const processFiles = (newFiles) => {
+    const addFiles = (newFiles) => {
         const fileEntries = newFiles.map(file => ({
+            file: file, // Keep actual file object for upload
             name: file.name,
             size: (file.size / 1024 / 1024).toFixed(2),
-            progress: 0,
-            status: 'uploading'
+            status: 'ready'
         }));
-
         setFiles(prev => [...prev, ...fileEntries]);
+    };
 
-        // Simulate upload progress
-        fileEntries.forEach((file, index) => {
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += Math.random() * 10 + 5;
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(interval);
-                    updateFileStatus(file.name, 'completed');
+    const handleContinue = async () => {
+        setIsCreating(true);
+        setError(null);
+        
+        try {
+            // First, create the project
+            const newProject = await confirmProjectCreation();
+            
+            // Then upload any files
+            if (files.length > 0) {
+                for (const fileEntry of files) {
+                    try {
+                        setFiles(prev => prev.map(f => 
+                            f.name === fileEntry.name ? { ...f, status: 'uploading' } : f
+                        ));
+                        await uploadFile(newProject.id, fileEntry.file);
+                        setFiles(prev => prev.map(f => 
+                            f.name === fileEntry.name ? { ...f, status: 'completed' } : f
+                        ));
+                    } catch (err) {
+                        setFiles(prev => prev.map(f => 
+                            f.name === fileEntry.name ? { ...f, status: 'error' } : f
+                        ));
+                        console.error('File upload failed:', err);
+                    }
                 }
-                updateFileProgress(file.name, progress);
-            }, 200 + index * 100);
-        });
+            }
+            
+            // Navigate to dashboard (handled in context)
+        } catch (err) {
+            console.error('Project creation failed:', err);
+            setError('Failed to create project. Please ensure the backend is running.');
+            setIsCreating(false);
+        }
     };
 
-    const updateFileProgress = (fileName, progress) => {
-        setFiles(prev => prev.map(f =>
-            f.name === fileName ? { ...f, progress } : f
-        ));
-    };
-
-    const updateFileStatus = (fileName, status) => {
-        setFiles(prev => prev.map(f =>
-            f.name === fileName ? { ...f, status } : f
-        ));
-    };
-
-    const handleContinue = () => {
-        setIsProcessing(true);
-        setTimeout(() => {
-            onNext(files);
-        }, 1500);
+    const handleSkip = async () => {
+        setIsCreating(true);
+        setError(null);
+        
+        try {
+            await confirmProjectCreation();
+        } catch (err) {
+            console.error('Project creation failed:', err);
+            setError('Failed to create project. Please ensure the backend is running.');
+            setIsCreating(false);
+        }
     };
 
     return (
@@ -285,6 +323,12 @@ const EvidenceUpload = ({ onNext }) => {
             </h1>
             <p className="text-gray-500 mb-8">Upload technical documentation to seed the AI knowledge base.</p>
 
+            {error && (
+                <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                    ⚠️ {error}
+                </div>
+            )}
+
             {/* Drop Zone */}
             <div
                 onDragOver={handleDragOver}
@@ -298,6 +342,7 @@ const EvidenceUpload = ({ onNext }) => {
                 <input
                     type="file"
                     multiple
+                    accept=".pdf,.docx,.txt"
                     className="hidden"
                     ref={fileInputRef}
                     onChange={handleFileSelect}
@@ -330,24 +375,22 @@ const EvidenceUpload = ({ onNext }) => {
                                     📄
                                 </div>
                                 <div className="flex-1">
-                                    <div className="flex justify-between mb-1">
-                                        <h4 className="text-sm font-medium text-gray-800 truncate max-w-[200px]">{file.name}</h4>
-                                        <span className="text-xs text-gray-500">{file.size} MB</span>
-                                    </div>
-                                    <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                                        <motion.div
-                                            className="h-full bg-blue-500"
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${file.progress}%` }}
-                                        />
-                                    </div>
+                                    <h4 className="text-sm font-medium text-gray-800 truncate max-w-[200px]">{file.name}</h4>
+                                    <span className="text-xs text-gray-500">{file.size} MB</span>
                                 </div>
                             </div>
                             <div className="ml-4">
-                                {file.progress === 100 ? (
-                                    <span className="text-green-500 text-xs font-bold bg-green-50 px-2 py-1 rounded-md">READY</span>
-                                ) : (
-                                    <span className="text-blue-500 text-xs font-bold">{Math.round(file.progress)}%</span>
+                                {file.status === 'ready' && (
+                                    <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">Ready</span>
+                                )}
+                                {file.status === 'uploading' && (
+                                    <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-600 animate-pulse">Uploading...</span>
+                                )}
+                                {file.status === 'completed' && (
+                                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-600">✓ Done</span>
+                                )}
+                                {file.status === 'error' && (
+                                    <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-600">✗ Failed</span>
                                 )}
                             </div>
                         </motion.div>
@@ -356,20 +399,27 @@ const EvidenceUpload = ({ onNext }) => {
             </div>
 
             <div className="flex justify-between items-center border-t border-gray-100 pt-6">
-                <button className="text-gray-400 text-sm hover:text-gray-600 transition-colors">Skip for now</button>
+                <button 
+                    onClick={handleSkip}
+                    disabled={isCreating}
+                    className="text-gray-400 text-sm hover:text-gray-600 transition-colors disabled:opacity-50"
+                >
+                    Skip for now
+                </button>
                 <button
                     onClick={handleContinue}
-                    disabled={files.length === 0 || isProcessing}
-                    className={`btn-primary flex items-center gap-2 min-w-[160px] justify-center ${files.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
+                    disabled={files.length === 0 || isCreating}
+                    className={`btn-primary flex items-center gap-2 min-w-[160px] justify-center ${
+                        files.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                 >
-                    {isProcessing ? (
+                    {isCreating ? (
                         <>
-                            <span className="animate-spin">⚙️</span> Processing...
+                            <span className="animate-spin">⚙️</span> Creating...
                         </>
                     ) : (
                         <>
-                            Initialize Pipeline <span>✨</span>
+                            Create Project <span>✨</span>
                         </>
                     )}
                 </button>
