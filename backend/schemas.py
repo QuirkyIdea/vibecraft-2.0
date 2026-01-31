@@ -20,8 +20,16 @@ class ProjectType(str, Enum):
 
 class AnalysisStatus(str, Enum):
     NOT_STARTED = "NOT_STARTED"
+    ASSISTIVE_ONLY = "ASSISTIVE_ONLY"  # Phase 2: AI has provided assistance
     PENDING = "PENDING"
     BLOCKED = "BLOCKED"
+
+
+class AIAction(str, Enum):
+    NONE = "NONE"
+    CLARIFY_IDEA = "CLARIFY_IDEA"
+    REWRITE_TEXT = "REWRITE_TEXT"
+    EXPLAIN_RISKS = "EXPLAIN_RISKS"
 
 
 # ============== File Schemas ==============
@@ -54,17 +62,16 @@ class FileResponse(FileBase):
 class AnalysisStateResponse(BaseModel):
     """
     Analysis state response - always honest about current capabilities.
-    
-    Phase 1:
-    - analysis_status is always NOT_STARTED
-    - notes clearly state AI is not implemented
     """
     id: int
     project_id: int
     idea_received: bool
     files_uploaded: bool
     analysis_status: AnalysisStatus = AnalysisStatus.NOT_STARTED
-    notes: str = "AI analysis not implemented. Phase 1 provides data persistence only."
+    ai_explanations_generated: bool = False
+    last_ai_action: AIAction = AIAction.NONE
+    last_ai_timestamp: Optional[datetime] = None
+    notes: str = "No AI analysis performed yet."
     updated_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
@@ -133,3 +140,27 @@ class ErrorResponse(BaseModel):
     success: bool = False
     error: str
     detail: Optional[str] = None
+
+
+# ============== AI Assistance Schemas ==============
+
+class AIAssistanceRequest(BaseModel):
+    """Request for AI assistance endpoints"""
+    project_id: int
+    text: str = Field(..., min_length=10, max_length=10000)
+    context: Optional[str] = None  # e.g., "patent claim", "research abstract"
+
+
+class AIAssistanceResponse(BaseModel):
+    """
+    Standard response for all AI assistance endpoints.
+    Always includes limitations and disclaimer.
+    """
+    success: bool
+    ai_output: str
+    limitations: List[str]
+    disclaimer: str
+    prompt_version: str
+    timestamp: str
+    error: Optional[str] = None
+

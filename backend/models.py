@@ -14,10 +14,19 @@ from database import Base
 
 
 class AnalysisStatus(str, PyEnum):
-    """Analysis status enum - Phase 1 only uses NOT_STARTED"""
+    """Analysis status enum"""
     NOT_STARTED = "NOT_STARTED"
+    ASSISTIVE_ONLY = "ASSISTIVE_ONLY"  # Phase 2: AI has provided assistance
     PENDING = "PENDING"  # Reserved for future phases
     BLOCKED = "BLOCKED"  # Reserved for future phases
+
+
+class AIAction(str, PyEnum):
+    """Types of AI actions performed"""
+    NONE = "NONE"
+    CLARIFY_IDEA = "CLARIFY_IDEA"
+    REWRITE_TEXT = "REWRITE_TEXT"
+    EXPLAIN_RISKS = "EXPLAIN_RISKS"
 
 
 class ProjectType(str, PyEnum):
@@ -77,9 +86,9 @@ class AnalysisState(Base):
     """
     AnalysisState model - tracks honest state of project analysis.
     
-    Phase 1 Behavior:
-    - analysis_status is ALWAYS 'NOT_STARTED'
-    - notes clearly state that AI is not implemented
+    Phase 2 Behavior:
+    - analysis_status moves from NOT_STARTED to ASSISTIVE_ONLY when AI helps
+    - AI outputs are advisory only, never authoritative
     - No fake progress or percentages
     """
     __tablename__ = "analysis_states"
@@ -91,17 +100,22 @@ class AnalysisState(Base):
     idea_received = Column(Boolean, default=False, nullable=False)
     files_uploaded = Column(Boolean, default=False, nullable=False)
     
-    # Analysis status - always NOT_STARTED in Phase 1
+    # Analysis status
     analysis_status = Column(
         Enum(AnalysisStatus), 
         default=AnalysisStatus.NOT_STARTED, 
         nullable=False
     )
     
-    # Honest notes about current limitations
+    # AI assistance tracking (Phase 2)
+    ai_explanations_generated = Column(Boolean, default=False, nullable=False)
+    last_ai_action = Column(Enum(AIAction), default=AIAction.NONE, nullable=False)
+    last_ai_timestamp = Column(DateTime, nullable=True)
+    
+    # Honest notes about current state
     notes = Column(
         Text, 
-        default="AI analysis not implemented. Phase 1 provides data persistence only.",
+        default="No AI analysis performed yet.",
         nullable=False
     )
     
@@ -112,3 +126,4 @@ class AnalysisState(Base):
     
     def __repr__(self):
         return f"<AnalysisState(project_id={self.project_id}, status={self.analysis_status})>"
+

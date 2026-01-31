@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
     
+    # LLM Configuration (Phase 2)
+    llm_provider: str = "nebius"
+    llm_base_url: str = "https://api.tokenfactory.nebius.com/v1/"
+    llm_api_key: str = ""
+    llm_model: str = "Qwen/Qwen3-32B"
+    llm_max_tokens: int = 1000
+    llm_timeout_seconds: int = 30
+    
     # API
     api_prefix: str = "/api"
     
