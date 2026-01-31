@@ -1,0 +1,2 @@
+cd G:\draft_patentai
+python -c "from src.services.extraction import extract_from_text; from src.services.structuring import extract_primitives; from src.services.postprocess import postprocess_section; data = extract_from_text('doc_1','Example problem statement. Example solution.'); prim = extract_primitives(data,'patent'); text = 'Example paragraph to format.'; print(prim); print(postprocess_section(text,'doc_1','abstract'))"

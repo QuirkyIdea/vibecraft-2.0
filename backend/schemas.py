@@ -39,6 +39,11 @@ class NoveltyRiskLevel(str, Enum):
     UNKNOWN = "UNKNOWN"  # Insufficient evidence
 
 
+class DraftMode(str, Enum):
+    PATENT = "patent"
+    RESEARCH = "research"
+
+
 # ============== File Schemas ==============
 
 class FileBase(BaseModel):
@@ -159,6 +164,31 @@ class ErrorResponse(BaseModel):
     success: bool = False
     error: str
     detail: Optional[str] = None
+
+
+# ============== Drafting Schemas ==============
+
+class DraftingRequest(BaseModel):
+    """Request for draft generation via draft_patentai"""
+    project_id: int
+    document_id: Optional[str] = None
+    text: Optional[str] = None
+    mode: DraftMode = DraftMode.PATENT
+
+
+class DraftSectionResponse(BaseModel):
+    heading: str
+    content: str
+
+
+class DraftingResponse(BaseModel):
+    success: bool
+    project_id: int
+    document_id: str
+    mode: DraftMode
+    output: Optional[str] = None
+    sections: List[DraftSectionResponse] = []
+    error: Optional[str] = None
 
 
 # ============== AI Assistance Schemas ==============

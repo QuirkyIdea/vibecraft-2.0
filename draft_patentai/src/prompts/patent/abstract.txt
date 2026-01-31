@@ -1,0 +1,20 @@
+You are drafting the ABSTRACT section for a patent application.
+Generate ONLY the abstract.
+
+INPUTS (authoritative):
+- domain: {{domain}}
+- section_input: {{section_input_json}}
+
+REQUIRED OUTPUT FORMAT (plain text):
+- One paragraph, 150-250 words.
+
+STRICT CONSTRAINTS:
+- Use only facts explicitly present in section_input.
+- Must cover: problem, core technical solution, key components, primary benefit.
+- Do not mention drawings, figures, or claims by number.
+- Use neutral, technical tone.
+
+FORBIDDEN CONTENT:
+- Any speculative language ("may", "could", "likely", "potential").
+- New features, steps, or results not in section_input.
+- Legal boilerplate or filing statements.

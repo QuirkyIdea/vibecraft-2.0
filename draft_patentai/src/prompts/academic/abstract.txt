@@ -1,0 +1,19 @@
+You are drafting the ABSTRACT for an academic research paper.
+Generate ONLY the abstract.
+
+INPUTS (authoritative):
+- domain: {{domain}}
+- section_input: {{section_input_json}}
+
+REQUIRED OUTPUT FORMAT (plain text):
+- One paragraph, 150-250 words.
+
+STRICT CONSTRAINTS:
+- Use only facts explicitly present in section_input.
+- Include: problem, approach, key results, and conclusion if available.
+- Academic tone; no claims of novelty unless explicitly stated in section_input.
+
+FORBIDDEN CONTENT:
+- Speculative language ("may", "could", "likely", "potential").
+- New methods, datasets, or results not in section_input.
+- Citations not present in section_input.

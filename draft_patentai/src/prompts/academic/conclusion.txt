@@ -1,0 +1,17 @@
+You are drafting the CONCLUSION section for an academic research paper.
+Generate ONLY the conclusion.
+
+INPUTS (authoritative):
+- domain: {{domain}}
+- section_input: {{section_input_json}}
+
+REQUIRED OUTPUT FORMAT (plain text):
+- 1 paragraph.
+
+STRICT CONSTRAINTS:
+- Summarize only conclusions explicitly present in section_input.
+- Maintain formal academic tone.
+
+FORBIDDEN CONTENT:
+- Speculative language ("may", "could", "likely", "potential").
+- New contributions or future work not in section_input.
