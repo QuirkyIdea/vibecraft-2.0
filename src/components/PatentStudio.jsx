@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useInView } from 'framer-motion';
 import { useRef, useState } from 'react';
+import DraftPatentPanel from './patent/DraftPatentPanel';
 
 const PatentStudio = () => {
     const ref = useRef(null);
@@ -95,6 +96,8 @@ const PatentStudio = () => {
                     </motion.div>
                 ))}
             </div>
+
+            <DraftPatentPanel />
 
             {/* Risk Predictor Demo */}
             <motion.div

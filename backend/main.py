@@ -69,7 +69,10 @@ from schemas import (
     ComparativeAnalysisSummary,
     OverlapPoint,
     DifferencePoint,
-    EvidenceSummaryItem
+    EvidenceSummaryItem,
+    DraftingRequest,
+    DraftingResponse,
+    DraftSectionResponse
 )
 from models import (
     AnalysisStatus, AIAction, ExtractedText, CandidateEvidence, EvidenceSource,
@@ -83,6 +86,7 @@ import retrieval_service
 import embedding_service
 import similarity_engine
 import comparative_service
+from drafting_adapter import DraftPatenAIFacade, DraftingAdapterError
 
 
 settings = get_settings()
@@ -910,6 +914,82 @@ def explain_risks(request: AIAssistanceRequest, db: Session = Depends(get_db)):
         db.commit()
     
     return result
+
+
+# ============== Drafting Endpoints ==============
+
+@app.post(
+    f"{settings.api_prefix}/drafting",
+    response_model=DraftingResponse,
+    tags=["Drafting"]
+)
+def generate_draft(request: DraftingRequest, db: Session = Depends(get_db)):
+    """
+    Generate a patent or research draft using draft_patentai via an adapter.
+
+    - Accepts project_id and optional document_id for tracking.
+    - Uses provided text or falls back to extracted/idea text.
+    - Errors are surfaced without crashing the main app.
+    """
+    db_project = crud.get_project(db, request.project_id)
+    if not db_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with id {request.project_id} not found"
+        )
+
+    source_text = request.text
+    if not source_text:
+        extracted = db.query(ExtractedText).filter(
+            ExtractedText.project_id == request.project_id
+        ).order_by(ExtractedText.extracted_at.desc()).first()
+        source_text = extracted.content if extracted else db_project.idea_text
+
+    if not source_text:
+        return DraftingResponse(
+            success=False,
+            project_id=request.project_id,
+            document_id=request.document_id or f"project_{request.project_id}",
+            mode=request.mode,
+            error="No drafting input text available. Provide text or extract text first."
+        )
+
+    document_id = request.document_id or f"project_{request.project_id}"
+    facade = DraftPatenAIFacade()
+
+    try:
+        result = facade.generate(
+            text=source_text,
+            document_id=document_id,
+            mode=request.mode.value
+        )
+        return DraftingResponse(
+            success=True,
+            project_id=request.project_id,
+            document_id=document_id,
+            mode=request.mode,
+            output=result.output,
+            sections=[
+                DraftSectionResponse(heading=s.heading, content=s.content)
+                for s in result.sections
+            ]
+        )
+    except DraftingAdapterError as exc:
+        return DraftingResponse(
+            success=False,
+            project_id=request.project_id,
+            document_id=document_id,
+            mode=request.mode,
+            error=str(exc)
+        )
+    except Exception:
+        return DraftingResponse(
+            success=False,
+            project_id=request.project_id,
+            document_id=document_id,
+            mode=request.mode,
+            error="Drafting failed due to an unexpected error."
+        )
 
 
 # ============== Phase 4: Similarity & Novelty Endpoints ==============

@@ -2,8 +2,15 @@ import { motion } from 'framer-motion';
 import { useWorkflow } from '../context/WorkflowContext';
 
 const CommandCenter = () => {
-    const { domain } = useWorkflow();
+    const { domain, openDrafting } = useWorkflow();
     const domainLabel = domain ? `${domain} Research` : 'Research';
+
+    const handleActionClick = (action) => {
+        if (action === 'Draft Patent') {
+            openDrafting('patent');
+            document.getElementById('patent-studio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
 
     return (
         <section id="command-center" className="min-h-screen pt-24 px-6 bg-gradient-to-br from-white via-blue-50 to-indigo-50/30">
@@ -117,7 +124,11 @@ const CommandCenter = () => {
                             <h3 className="text-lg font-semibold mb-4 text-gray-800">Quick Actions</h3>
                             <div className="grid grid-cols-2 gap-3">
                                 {['New Research', 'Draft Patent', 'Scan Novelty', 'View Graph'].map(action => (
-                                    <button key={action} className="p-3 rounded-xl bg-white/50 border border-white/60 hover:bg-blue-50/50 hover:border-blue-200 transition-all text-sm font-medium text-gray-700 text-left">
+                                    <button
+                                        key={action}
+                                        onClick={() => handleActionClick(action)}
+                                        className="p-3 rounded-xl bg-white/50 border border-white/60 hover:bg-blue-50/50 hover:border-blue-200 transition-all text-sm font-medium text-gray-700 text-left"
+                                    >
                                         {action}
                                     </button>
                                 ))}

@@ -20,6 +20,7 @@ export const WorkflowProvider = ({ children }) => {
     // Stages: 'IDLE', 'TYPE', 'IDEA', 'UPLOAD', 'SEGREGATION', 'PIPELINE', 'ACTIVE'
     const [creationStage, setCreationStage] = useState('IDLE');
     const [newProjectData, setNewProjectData] = useState({ title: '', description: '', outcome: '', domain: null, projectType: 'RESEARCH' });
+    const [draftingTarget, setDraftingTarget] = useState(null);
 
     const navigateTo = (view) => {
         setCurrentView(view);
@@ -50,6 +51,14 @@ export const WorkflowProvider = ({ children }) => {
         setCreationStage('IDLE'); // Reset to IDLE
     };
 
+    const openDrafting = (mode) => {
+        setDraftingTarget({ mode, token: Date.now() });
+    };
+
+    const clearDraftingTarget = () => {
+        setDraftingTarget(null);
+    };
+
     return (
         <WorkflowContext.Provider value={{
             currentView,
@@ -63,6 +72,9 @@ export const WorkflowProvider = ({ children }) => {
             setNewProjectData,
             startNewProject,
             confirmProjectCreation,
+            draftingTarget,
+            openDrafting,
+            clearDraftingTarget,
             domain: activeProject?.domain
         }}>
             {children}

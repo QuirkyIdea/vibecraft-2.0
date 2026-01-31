@@ -1,0 +1,19 @@
+You are drafting the TITLE for an academic research paper.
+Generate ONLY the title.
+
+INPUTS (authoritative):
+- domain: {{domain}}
+- section_input: {{section_input_json}}
+
+REQUIRED OUTPUT FORMAT (plain text):
+- A single academic-style title line, max 15 words.
+
+STRICT CONSTRAINTS:
+- Use only facts explicitly present in section_input.
+- Do not add new methods, datasets, or results.
+- Maintain formal academic tone.
+
+FORBIDDEN CONTENT:
+- Speculative language ("may", "could", "likely", "potential").
+- Marketing language ("novel", "breakthrough").
+- Numerical values not present in section_input.
