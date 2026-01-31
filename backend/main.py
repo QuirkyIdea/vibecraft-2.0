@@ -1,5 +1,5 @@
 """
-Inventix AI Backend - Phase 3
+Inventix AI Backend - Phase 4
 FastAPI Application Entry Point
 
 This backend provides:
@@ -9,20 +9,21 @@ This backend provides:
 - AI ASSISTANCE (not decisions!)
 - Text extraction from documents
 - Evidence retrieval from external sources
+- DETERMINISTIC SIMILARITY SCORING
+- NOVELTY RISK CLASSIFICATION
 
-Phase 3 Features:
-- PDF/DOCX text extraction
-- LLM-based keyword extraction
-- Research paper retrieval (Semantic Scholar)
-- Patent retrieval (USPTO)
-- Auditable evidence storage
+Phase 4 Features:
+- Text embeddings for semantic similarity
+- Cosine similarity between idea and evidence
+- Novelty risk: GREEN/YELLOW/RED/UNKNOWN
+- Evidence attribution for every score
 
 HARD RULES:
-- AI outputs are ASSISTIVE ONLY
-- No novelty scores or percentages
-- No legal/academic claims
-- No similarity judgments
-- All retrieved evidence is "candidates" only
+- Similarity from REAL text only
+- Every score links to specific evidence
+- No LLM-only similarity judgments
+- Same input → same score (deterministic)
+- Patent/research flows are separate
 """
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -54,13 +55,26 @@ from schemas import (
     RetrievalRequest,
     RetrievalResponse,
     ProjectEvidenceResponse,
-    EvidenceCandidateResponse
+    EvidenceCandidateResponse,
+    # Phase 4 schemas
+    NoveltyRiskLevel,
+    EmbeddingGenerationResponse,
+    SimilarityComputationResponse,
+    NoveltyRiskResponse,
+    SimilarityMatch,
+    SimilarityListResponse
 )
-from models import AnalysisStatus, AIAction, ExtractedText, CandidateEvidence, EvidenceSource
+from models import (
+    AnalysisStatus, AIAction, ExtractedText, CandidateEvidence, EvidenceSource,
+    NoveltyRiskLevel as NoveltyRiskLevelModel, IdeaEmbedding, EvidenceEmbedding, SimilarityScore
+)
 import crud
 import ai_service
 import text_extraction
 import retrieval_service
+import embedding_service
+import similarity_engine
+
 
 settings = get_settings()
 
@@ -70,7 +84,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan - runs on startup and shutdown"""
     # Startup
     print("=" * 50)
-    print("Starting Inventix AI Backend - Phase 3")
+    print("Starting Inventix AI Backend - Phase 4")
     print("=" * 50)
     init_db()
     ensure_upload_dir()
@@ -79,6 +93,7 @@ async def lifespan(app: FastAPI):
     print(f"✓ CORS origins: {settings.cors_origins_list}")
     print(f"✓ LLM Provider: {settings.llm_provider}")
     print(f"✓ LLM Model: {settings.llm_model}")
+    print(f"✓ Embedding Model: {settings.embedding_model}")
     
     # Check if LLM is configured
     if not settings.llm_api_key or settings.llm_api_key == "your-nebius-api-key-here":
@@ -88,6 +103,8 @@ async def lifespan(app: FastAPI):
     
     print("✓ Text Extraction: PDF, DOCX, TXT")
     print("✓ External Retrieval: Semantic Scholar, USPTO")
+    print("✓ Similarity Scoring: Cosine similarity on embeddings")
+    print("✓ Novelty Risk: GREEN/YELLOW/RED/UNKNOWN")
     print("=" * 50)
     yield
     # Shutdown
@@ -97,19 +114,23 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Inventix AI Backend",
     description="""
-    Phase 3 Backend - Evidence-Based Retrieval Layer
+    Phase 4 Backend - Deterministic Similarity & Novelty Classification
     
     This backend provides:
     - Honest, persistent data storage
     - AI assistance for idea clarification, text rewriting, and risk awareness
     - REAL text extraction from PDF/DOCX files
     - REAL evidence retrieval from Semantic Scholar and USPTO
+    - DETERMINISTIC similarity scoring (cosine similarity on embeddings)
+    - NOVELTY RISK classification (GREEN/YELLOW/RED/UNKNOWN)
     
-    AI outputs are clearly labeled as ASSISTIVE ONLY.
-    Retrieved documents are CANDIDATE EVIDENCE only.
-    No novelty scores, no similarity judgments, no legal claims.
+    HARD RULES:
+    - Similarity from REAL text only
+    - Every score links to specific evidence
+    - Same input → same score (deterministic)
+    - Patent/research flows are separate
     """,
-    version="0.3.0",
+    version="0.4.0",
     lifespan=lifespan
 )
 
@@ -882,6 +903,411 @@ def explain_risks(request: AIAssistanceRequest, db: Session = Depends(get_db)):
     return result
 
 
+# ============== Phase 4: Similarity & Novelty Endpoints ==============
+
+@app.post(
+    f"{settings.api_prefix}/projects/{{project_id}}/generate-embeddings",
+    response_model=EmbeddingGenerationResponse,
+    tags=["Similarity & Novelty"]
+)
+def generate_embeddings(project_id: int, db: Session = Depends(get_db)):
+    """
+    Generate embeddings for the user's idea and all evidence.
+    
+    Uses text-embedding-3-small model via OpenAI-compatible API.
+    Embeddings are cached - recomputes only when text changes.
+    
+    ⚠️ Requires API key to be configured.
+    """
+    db_project = crud.get_project(db, project_id)
+    if not db_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with id {project_id} not found"
+        )
+    
+    # Get idea text
+    idea_text = db_project.idea_text
+    if not idea_text:
+        # Try extracted texts
+        extracted = db.query(ExtractedText).filter(
+            ExtractedText.project_id == project_id
+        ).all()
+        if extracted:
+            idea_text = " ".join([e.content[:2000] for e in extracted])
+    
+    if not idea_text:
+        return EmbeddingGenerationResponse(
+            success=False,
+            project_id=project_id,
+            idea_embedded=False,
+            evidence_embedded=0,
+            total_evidence=0,
+            notes="",
+            error="No idea text or extracted text available."
+        )
+    
+    # Generate idea embedding
+    idea_hash = embedding_service.compute_text_hash(idea_text)
+    existing_idea = db.query(IdeaEmbedding).filter(
+        IdeaEmbedding.project_id == project_id
+    ).first()
+    
+    idea_embedded = False
+    if existing_idea and existing_idea.text_hash == idea_hash:
+        idea_embedded = True  # Already cached
+    else:
+        result = embedding_service.generate_embedding(idea_text)
+        if result.success:
+            if existing_idea:
+                existing_idea.embedding = embedding_service.embedding_to_json(result.embedding)
+                existing_idea.text_hash = result.text_hash
+                existing_idea.model_name = result.model_name
+                existing_idea.dimensions = result.dimensions
+                existing_idea.created_at = datetime.utcnow()
+            else:
+                new_embedding = IdeaEmbedding(
+                    project_id=project_id,
+                    embedding=embedding_service.embedding_to_json(result.embedding),
+                    text_hash=result.text_hash,
+                    model_name=result.model_name,
+                    dimensions=result.dimensions
+                )
+                db.add(new_embedding)
+            idea_embedded = True
+        else:
+            return EmbeddingGenerationResponse(
+                success=False,
+                project_id=project_id,
+                idea_embedded=False,
+                evidence_embedded=0,
+                total_evidence=0,
+                notes="",
+                error=result.error
+            )
+    
+    # Generate evidence embeddings
+    evidence = db.query(CandidateEvidence).filter(
+        CandidateEvidence.project_id == project_id
+    ).all()
+    
+    evidence_embedded = 0
+    for ev in evidence:
+        ev_text = f"{ev.title}. {ev.abstract or ''}"
+        ev_hash = embedding_service.compute_text_hash(ev_text)
+        
+        existing_ev = db.query(EvidenceEmbedding).filter(
+            EvidenceEmbedding.evidence_id == ev.id
+        ).first()
+        
+        if existing_ev and existing_ev.text_hash == ev_hash:
+            evidence_embedded += 1
+            continue
+        
+        result = embedding_service.generate_embedding(ev_text)
+        if result.success:
+            if existing_ev:
+                existing_ev.embedding = embedding_service.embedding_to_json(result.embedding)
+                existing_ev.text_hash = result.text_hash
+                existing_ev.model_name = result.model_name
+                existing_ev.dimensions = result.dimensions
+                existing_ev.created_at = datetime.utcnow()
+            else:
+                new_ev_emb = EvidenceEmbedding(
+                    evidence_id=ev.id,
+                    embedding=embedding_service.embedding_to_json(result.embedding),
+                    text_hash=result.text_hash,
+                    model_name=result.model_name,
+                    dimensions=result.dimensions
+                )
+                db.add(new_ev_emb)
+            evidence_embedded += 1
+    
+    db.commit()
+    
+    return EmbeddingGenerationResponse(
+        success=True,
+        project_id=project_id,
+        idea_embedded=idea_embedded,
+        evidence_embedded=evidence_embedded,
+        total_evidence=len(evidence),
+        notes=f"Embeddings generated using {settings.embedding_model}."
+    )
+
+
+@app.post(
+    f"{settings.api_prefix}/projects/{{project_id}}/compute-similarity",
+    response_model=SimilarityComputationResponse,
+    tags=["Similarity & Novelty"]
+)
+def compute_similarity(project_id: int, db: Session = Depends(get_db)):
+    """
+    Compute similarity between idea and all evidence.
+    
+    Uses cosine similarity on pre-generated embeddings.
+    Results are DETERMINISTIC: same input → same output.
+    
+    ⚠️ Requires embeddings to be generated first.
+    """
+    db_project = crud.get_project(db, project_id)
+    if not db_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with id {project_id} not found"
+        )
+    
+    # Get idea embedding
+    idea_emb = db.query(IdeaEmbedding).filter(
+        IdeaEmbedding.project_id == project_id
+    ).first()
+    
+    if not idea_emb:
+        return SimilarityComputationResponse(
+            success=False,
+            project_id=project_id,
+            scores_computed=0,
+            max_score=None,
+            notes="",
+            error="Idea embedding not found. Generate embeddings first."
+        )
+    
+    idea_vector = embedding_service.embedding_from_json(idea_emb.embedding)
+    
+    # Get all evidence with embeddings
+    evidence = db.query(CandidateEvidence).filter(
+        CandidateEvidence.project_id == project_id
+    ).all()
+    
+    scores_computed = 0
+    max_score = 0.0
+    
+    for ev in evidence:
+        ev_emb = db.query(EvidenceEmbedding).filter(
+            EvidenceEmbedding.evidence_id == ev.id
+        ).first()
+        
+        if not ev_emb:
+            continue
+        
+        ev_vector = embedding_service.embedding_from_json(ev_emb.embedding)
+        
+        # Compute cosine similarity
+        score = similarity_engine.cosine_similarity(idea_vector, ev_vector)
+        score_int = int(score * 10000)  # Store as int for precision
+        
+        # Update or create similarity score
+        existing_score = db.query(SimilarityScore).filter(
+            SimilarityScore.project_id == project_id,
+            SimilarityScore.evidence_id == ev.id
+        ).first()
+        
+        if existing_score:
+            existing_score.score = score_int
+            existing_score.computed_at = datetime.utcnow()
+        else:
+            new_score = SimilarityScore(
+                project_id=project_id,
+                evidence_id=ev.id,
+                score=score_int,
+                evidence_type=ev.source_type
+            )
+            db.add(new_score)
+        
+        scores_computed += 1
+        max_score = max(max_score, score)
+    
+    # Update analysis state
+    if db_project.analysis_state:
+        db_project.analysis_state.similarity_computed = True
+        db_project.analysis_state.max_similarity_score = int(max_score * 10000)
+    
+    db.commit()
+    
+    return SimilarityComputationResponse(
+        success=True,
+        project_id=project_id,
+        scores_computed=scores_computed,
+        max_score=max_score if scores_computed > 0 else None,
+        notes=f"Computed {scores_computed} similarity scores. Max: {max_score:.4f}"
+    )
+
+
+@app.get(
+    f"{settings.api_prefix}/projects/{{project_id}}/novelty-risk",
+    response_model=NoveltyRiskResponse,
+    tags=["Similarity & Novelty"]
+)
+def get_novelty_risk(project_id: int, db: Session = Depends(get_db)):
+    """
+    Get novelty risk assessment for a project.
+    
+    Classification based on MAX similarity score:
+    - GREEN: Low overlap (< 0.50 research, < 0.45 patent)
+    - YELLOW: Partial overlap (0.50-0.79 research, 0.45-0.74 patent)
+    - RED: High overlap (≥ 0.80 research, ≥ 0.75 patent)
+    - UNKNOWN: No evidence to compare
+    
+    ⚠️ Every risk is traceable to specific evidence.
+    """
+    db_project = crud.get_project(db, project_id)
+    if not db_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with id {project_id} not found"
+        )
+    
+    # Get all similarity scores
+    scores = db.query(SimilarityScore).filter(
+        SimilarityScore.project_id == project_id
+    ).all()
+    
+    if not scores:
+        # Update analysis state
+        if db_project.analysis_state:
+            db_project.analysis_state.novelty_risk = NoveltyRiskLevelModel.UNKNOWN
+            db.commit()
+        
+        return NoveltyRiskResponse(
+            project_id=project_id,
+            novelty_risk=NoveltyRiskLevel.UNKNOWN,
+            max_similarity_score=None,
+            top_match=None,
+            research_risk=NoveltyRiskLevel.UNKNOWN,
+            research_max_score=None,
+            research_matches=0,
+            patent_risk=NoveltyRiskLevel.UNKNOWN,
+            patent_max_score=None,
+            patent_matches=0,
+            total_evidence_compared=0,
+            notes="Insufficient evidence to assess novelty risk."
+        )
+    
+    # Separate by type
+    research_scores = [s for s in scores if s.evidence_type == "paper"]
+    patent_scores = [s for s in scores if s.evidence_type == "patent"]
+    
+    # Compute risk for each type
+    research_max = max([s.score_float for s in research_scores]) if research_scores else None
+    patent_max = max([s.score_float for s in patent_scores]) if patent_scores else None
+    
+    research_risk = (
+        similarity_engine.classify_novelty_risk(research_max, "paper")
+        if research_max is not None
+        else similarity_engine.NoveltyRisk.UNKNOWN
+    )
+    patent_risk = (
+        similarity_engine.classify_novelty_risk(patent_max, "patent")
+        if patent_max is not None
+        else similarity_engine.NoveltyRisk.UNKNOWN
+    )
+    
+    # Overall risk (max of both)
+    all_scores_float = [s.score_float for s in scores]
+    max_score = max(all_scores_float)
+    
+    # Find top match
+    top_score = max(scores, key=lambda s: s.score)
+    top_evidence = db.query(CandidateEvidence).filter(
+        CandidateEvidence.id == top_score.evidence_id
+    ).first()
+    
+    overall_risk = similarity_engine.classify_novelty_risk(max_score, top_score.evidence_type)
+    
+    # Build top match response
+    top_match = None
+    if top_evidence:
+        top_match = SimilarityMatch(
+            evidence_id=top_evidence.id,
+            title=top_evidence.title,
+            authors=top_evidence.authors,
+            source=top_evidence.source_name.value,
+            source_url=top_evidence.source_url,
+            evidence_type=top_evidence.source_type,
+            similarity_score=top_score.score_float
+        )
+    
+    # Generate notes
+    if overall_risk == similarity_engine.NoveltyRisk.RED:
+        notes = f"High similarity detected ({max_score:.2f}). Significant overlap with '{top_evidence.title[:50]}...'."
+    elif overall_risk == similarity_engine.NoveltyRisk.YELLOW:
+        notes = f"Moderate similarity detected ({max_score:.2f}). Review recommended."
+    else:
+        notes = f"Low similarity detected ({max_score:.2f}). Idea appears to have novel aspects."
+    
+    # Update analysis state
+    if db_project.analysis_state:
+        db_project.analysis_state.novelty_risk = NoveltyRiskLevelModel(overall_risk.value)
+        db_project.analysis_state.max_similarity_score = int(max_score * 10000)
+        db_project.analysis_state.top_evidence_id = top_evidence.id if top_evidence else None
+        db_project.analysis_state.notes = notes
+        db.commit()
+    
+    return NoveltyRiskResponse(
+        project_id=project_id,
+        novelty_risk=NoveltyRiskLevel(overall_risk.value),
+        max_similarity_score=max_score,
+        top_match=top_match,
+        research_risk=NoveltyRiskLevel(research_risk.value),
+        research_max_score=research_max,
+        research_matches=len(research_scores),
+        patent_risk=NoveltyRiskLevel(patent_risk.value),
+        patent_max_score=patent_max,
+        patent_matches=len(patent_scores),
+        total_evidence_compared=len(scores),
+        notes=notes
+    )
+
+
+@app.get(
+    f"{settings.api_prefix}/projects/{{project_id}}/similarity-scores",
+    response_model=SimilarityListResponse,
+    tags=["Similarity & Novelty"]
+)
+def list_similarity_scores(
+    project_id: int,
+    limit: int = 20,
+    db: Session = Depends(get_db)
+):
+    """
+    List all similarity scores for a project, sorted by similarity.
+    
+    Each score is linked to specific evidence with verifiable URL.
+    """
+    db_project = crud.get_project(db, project_id)
+    if not db_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with id {project_id} not found"
+        )
+    
+    scores = db.query(SimilarityScore).filter(
+        SimilarityScore.project_id == project_id
+    ).order_by(SimilarityScore.score.desc()).limit(limit).all()
+    
+    matches = []
+    for s in scores:
+        evidence = db.query(CandidateEvidence).filter(
+            CandidateEvidence.id == s.evidence_id
+        ).first()
+        
+        if evidence:
+            matches.append(SimilarityMatch(
+                evidence_id=evidence.id,
+                title=evidence.title,
+                authors=evidence.authors,
+                source=evidence.source_name.value,
+                source_url=evidence.source_url,
+                evidence_type=evidence.source_type,
+                similarity_score=s.score_float
+            ))
+    
+    return SimilarityListResponse(
+        project_id=project_id,
+        matches=matches,
+        total=len(matches)
+    )
+
+
 # ============== System Info ==============
 
 @app.get(f"{settings.api_prefix}/system/status", tags=["System"])
@@ -894,10 +1320,11 @@ def system_status():
     llm_configured = bool(settings.llm_api_key and settings.llm_api_key != "your-nebius-api-key-here")
     
     return {
-        "phase": 3,
-        "version": "0.3.0",
+        "phase": 4,
+        "version": "0.4.0",
         "ai_provider": settings.llm_provider if llm_configured else None,
         "ai_model": settings.llm_model if llm_configured else None,
+        "embedding_model": settings.embedding_model,
         "implemented": [
             "Project CRUD operations",
             "File upload and storage",
@@ -910,27 +1337,33 @@ def system_status():
             "Keyword extraction (LLM-assisted)",
             "Research paper retrieval (Semantic Scholar)",
             "Patent retrieval (USPTO)",
-            "Evidence storage and auditing"
+            "Evidence storage and auditing",
+            "Embedding generation (text-embedding-3-small)",
+            "Cosine similarity computation",
+            "Novelty risk classification (GREEN/YELLOW/RED/UNKNOWN)"
         ],
         "not_implemented": [
-            "Novelty scoring",
-            "Similarity detection",
-            "Prior art comparison",
-            "Embeddings / vector search",
-            "Multi-agent orchestration"
+            "Multi-agent orchestration",
+            "LLM explanation of similarity",
+            "Patent legal analysis"
         ],
-        "phase_3_limitations": [
-            "Retrieved documents are CANDIDATES only",
-            "No similarity scores computed",
-            "No novelty claims or judgments",
-            "Human review always required"
-        ],
-        "notes": "Phase 3 enables REAL data retrieval. Comparison is possible but NOT performed."
+        "phase_4_features": {
+            "similarity_scoring": "Deterministic cosine similarity",
+            "novelty_thresholds": {
+                "research_red": settings.research_red_threshold,
+                "research_yellow": settings.research_yellow_threshold,
+                "patent_red": settings.patent_red_threshold,
+                "patent_yellow": settings.patent_yellow_threshold
+            },
+            "evidence_attribution": "Every score links to specific evidence"
+        },
+        "notes": "Phase 4 enables REAL similarity scoring. Every result is traceable and reproducible."
     }
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 

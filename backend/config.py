@@ -28,6 +28,18 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 1000
     llm_timeout_seconds: int = 30
     
+    # Embedding Configuration (Phase 4)
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dimensions: int = 1536
+    
+    # Novelty Thresholds - Research Papers
+    research_red_threshold: float = 0.80
+    research_yellow_threshold: float = 0.50
+    
+    # Novelty Thresholds - Patents (stricter)
+    patent_red_threshold: float = 0.75
+    patent_yellow_threshold: float = 0.45
+    
     # API
     api_prefix: str = "/api"
     

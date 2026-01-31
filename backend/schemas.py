@@ -32,6 +32,13 @@ class AIAction(str, Enum):
     EXPLAIN_RISKS = "EXPLAIN_RISKS"
 
 
+class NoveltyRiskLevel(str, Enum):
+    GREEN = "GREEN"      # Low overlap - likely novel
+    YELLOW = "YELLOW"    # Partial overlap - needs review
+    RED = "RED"          # High overlap - significant concern
+    UNKNOWN = "UNKNOWN"  # Insufficient evidence
+
+
 # ============== File Schemas ==============
 
 class FileBase(BaseModel):
@@ -70,6 +77,11 @@ class AnalysisStateResponse(BaseModel):
     # Phase 3 additions
     text_extracted: bool = False
     evidence_retrieved: bool = False
+    # Phase 4 additions
+    similarity_computed: bool = False
+    novelty_risk: NoveltyRiskLevel = NoveltyRiskLevel.UNKNOWN
+    max_similarity_score: Optional[float] = None
+    top_evidence_id: Optional[int] = None
     analysis_status: AnalysisStatus = AnalysisStatus.NOT_STARTED
     ai_explanations_generated: bool = False
     last_ai_action: AIAction = AIAction.NONE
@@ -261,3 +273,74 @@ class ProjectEvidenceResponse(BaseModel):
     notes: str = "These are candidate documents only. No similarity scores or judgments."
 
 
+# ============== Phase 4: Similarity & Novelty Schemas ==============
+
+class SimilarityMatch(BaseModel):
+    """Single similarity match with evidence"""
+    evidence_id: int
+    title: str
+    authors: str
+    source: str
+    source_url: str  # Verifiable URL
+    evidence_type: str  # "paper" or "patent"
+    similarity_score: float  # 0.0 - 1.0
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class EmbeddingGenerationResponse(BaseModel):
+    """Response from embedding generation"""
+    success: bool
+    project_id: int
+    idea_embedded: bool
+    evidence_embedded: int
+    total_evidence: int
+    notes: str
+    error: Optional[str] = None
+
+
+class SimilarityComputationResponse(BaseModel):
+    """Response from similarity computation"""
+    success: bool
+    project_id: int
+    scores_computed: int
+    max_score: Optional[float]
+    notes: str
+    error: Optional[str] = None
+
+
+class NoveltyRiskResponse(BaseModel):
+    """
+    Complete novelty risk assessment with evidence attribution.
+    
+    EVERY risk is traceable to specific evidence.
+    """
+    project_id: int
+    novelty_risk: NoveltyRiskLevel
+    max_similarity_score: Optional[float]
+    top_match: Optional[SimilarityMatch]
+    research_risk: NoveltyRiskLevel
+    research_max_score: Optional[float]
+    research_matches: int
+    patent_risk: NoveltyRiskLevel
+    patent_max_score: Optional[float]
+    patent_matches: int
+    total_evidence_compared: int
+    explanation: Optional[str] = None
+    notes: str
+
+
+class SimilarityDetailRequest(BaseModel):
+    """Request for similarity details"""
+    project_id: int
+    evidence_type: Optional[str] = None  # "paper" or "patent" or None for all
+    limit: int = Field(default=10, ge=1, le=50)
+    explain: bool = False  # Whether to include LLM explanation
+
+
+class SimilarityListResponse(BaseModel):
+    """List of all similarity scores for a project"""
+    project_id: int
+    matches: List[SimilarityMatch]
+    total: int
+    notes: str = "Similarity based on semantic comparison. Higher score = more overlap."

@@ -145,14 +145,97 @@ class CandidateEvidence(Base):
         return f"<CandidateEvidence(id={self.id}, title='{self.title[:30]}...')>"
 
 
+class NoveltyRiskLevel(str, PyEnum):
+    """Novelty risk classification"""
+    GREEN = "GREEN"      # Low overlap - likely novel
+    YELLOW = "YELLOW"    # Partial overlap - needs review
+    RED = "RED"          # High overlap - significant concern
+    UNKNOWN = "UNKNOWN"  # Insufficient evidence
+
+
+class IdeaEmbedding(Base):
+    """
+    IdeaEmbedding model - stores embedding vector for user's idea.
+    
+    Phase 4: Used for semantic similarity computation.
+    """
+    __tablename__ = "idea_embeddings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), unique=True, nullable=False)
+    embedding = Column(Text, nullable=False)  # JSON array of floats
+    text_hash = Column(String(64), nullable=False)  # For cache invalidation
+    model_name = Column(String(100), nullable=False)
+    dimensions = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    project = relationship("Project", backref="idea_embedding")
+    
+    def __repr__(self):
+        return f"<IdeaEmbedding(project_id={self.project_id}, dims={self.dimensions})>"
+
+
+class EvidenceEmbedding(Base):
+    """
+    EvidenceEmbedding model - stores embedding for candidate evidence.
+    
+    Phase 4: Cached for efficient similarity computation.
+    """
+    __tablename__ = "evidence_embeddings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    evidence_id = Column(Integer, ForeignKey("candidate_evidence.id"), unique=True, nullable=False)
+    embedding = Column(Text, nullable=False)  # JSON array of floats
+    text_hash = Column(String(64), nullable=False)
+    model_name = Column(String(100), nullable=False)
+    dimensions = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    evidence = relationship("CandidateEvidence", backref="embedding")
+    
+    def __repr__(self):
+        return f"<EvidenceEmbedding(evidence_id={self.evidence_id})>"
+
+
+class SimilarityScore(Base):
+    """
+    SimilarityScore model - stores computed similarity between idea and evidence.
+    
+    Phase 4: Every score links to specific evidence (no orphan scores).
+    """
+    __tablename__ = "similarity_scores"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    evidence_id = Column(Integer, ForeignKey("candidate_evidence.id"), nullable=False)
+    score = Column(Integer, nullable=False)  # Stored as int (score * 10000 for precision)
+    evidence_type = Column(String(20), nullable=False)  # "paper" or "patent"
+    computed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    project = relationship("Project", backref="similarity_scores")
+    evidence = relationship("CandidateEvidence", backref="similarity_score")
+    
+    @property
+    def score_float(self) -> float:
+        """Get score as float (0.0 - 1.0)"""
+        return self.score / 10000.0
+    
+    def __repr__(self):
+        return f"<SimilarityScore(project={self.project_id}, evidence={self.evidence_id}, score={self.score_float:.4f})>"
+
+
 class AnalysisState(Base):
     """
     AnalysisState model - tracks honest state of project analysis.
     
-    Phase 3 additions:
-    - text_extracted: True when files have been processed
-    - evidence_retrieved: True when external retrieval completed
-    - retrieval_notes: Explains limitations
+    Phase 4 additions:
+    - similarity_computed: True when similarity computed
+    - novelty_risk: GREEN/YELLOW/RED/UNKNOWN
+    - max_similarity_score: Top similarity score
+    - top_evidence_id: ID of most similar evidence
     """
     __tablename__ = "analysis_states"
     
@@ -166,6 +249,16 @@ class AnalysisState(Base):
     # Phase 3: Text extraction and retrieval flags
     text_extracted = Column(Boolean, default=False, nullable=False)
     evidence_retrieved = Column(Boolean, default=False, nullable=False)
+    
+    # Phase 4: Similarity and novelty flags
+    similarity_computed = Column(Boolean, default=False, nullable=False)
+    novelty_risk = Column(
+        Enum(NoveltyRiskLevel),
+        default=NoveltyRiskLevel.UNKNOWN,
+        nullable=False
+    )
+    max_similarity_score = Column(Integer, nullable=True)  # Score * 10000
+    top_evidence_id = Column(Integer, nullable=True)
     
     # Analysis status
     analysis_status = Column(
@@ -198,7 +291,15 @@ class AnalysisState(Base):
     # Relationships
     project = relationship("Project", back_populates="analysis_state")
     
+    @property
+    def max_similarity_float(self) -> float:
+        """Get max similarity as float (0.0 - 1.0)"""
+        if self.max_similarity_score is None:
+            return None
+        return self.max_similarity_score / 10000.0
+    
     def __repr__(self):
-        return f"<AnalysisState(project_id={self.project_id}, status={self.analysis_status})>"
+        return f"<AnalysisState(project_id={self.project_id}, risk={self.novelty_risk})>"
+
 
 
