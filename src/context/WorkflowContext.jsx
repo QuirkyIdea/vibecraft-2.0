@@ -44,8 +44,10 @@ export const WorkflowProvider = ({ children }) => {
         setProjectsError(null);
         try {
             const response = await api.projects.list();
+            // Backend returns {projects: [...], total: N}
+            const projectsList = response.data.projects || response.data || [];
             // Transform backend response to match UI expectations
-            const transformedProjects = response.data.map(p => ({
+            const transformedProjects = projectsList.map(p => ({
                 id: p.id,
                 title: p.title,
                 type: p.type,

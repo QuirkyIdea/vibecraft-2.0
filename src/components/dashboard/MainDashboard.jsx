@@ -2,7 +2,7 @@
  * Inventix AI - Main Dashboard
  * 
  * REFACTORED: Shows relevant components based on project type.
- * Removed component spam - now context-aware.
+ * Now includes ProjectActions and EvidencePanel for full workflow.
  */
 import { motion } from 'framer-motion';
 import { useWorkflow } from '../../context/WorkflowContext';
@@ -10,6 +10,8 @@ import CommandCenter from '../CommandCenter';
 import ResearchStudio from '../ResearchStudio';
 import PatentStudio from '../PatentStudio';
 import PageTransition from '../PageTransition';
+import ProjectActions from './ProjectActions';
+import EvidencePanel from './EvidencePanel';
 
 const MainDashboard = () => {
     const { activeProject } = useWorkflow();
@@ -25,6 +27,14 @@ const MainDashboard = () => {
             <PageTransition>
                 <CommandCenter key={activeProject?.id} />
             </PageTransition>
+
+            {/* Project Actions - Only when a project is active */}
+            {activeProject && (
+                <div className="max-w-7xl mx-auto px-6 mt-8">
+                    <ProjectActions />
+                    <EvidencePanel />
+                </div>
+            )}
 
             {/* Research Studio - Only for RESEARCH projects */}
             {(!activeProject || activeProject.type === 'RESEARCH') && (

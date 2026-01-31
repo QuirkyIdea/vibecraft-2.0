@@ -29,25 +29,27 @@ export const files = {
 
 // ============== Text Extraction ==============
 export const extraction = {
-  extract: (projectId, fileId) => client.post(`/projects/${projectId}/extract/${fileId}`),
+  extract: (projectId) => client.post(`/projects/${projectId}/extract-text`),
 };
 
 // ============== Evidence Retrieval (Phase 3) ==============
 export const evidence = {
-  retrieve: (projectId, data) => client.post(`/projects/${projectId}/retrieve`, data),
+  retrievePapers: (projectId, data) => client.post(`/projects/${projectId}/retrieve-papers`, data),
+  retrievePatents: (projectId, data) => client.post(`/projects/${projectId}/retrieve-patents`, data),
   list: (projectId) => client.get(`/projects/${projectId}/evidence`),
 };
 
 // ============== Similarity & Novelty (Phase 4) ==============
 export const similarity = {
-  compute: (projectId) => client.post(`/projects/${projectId}/similarity/compute`),
+  generateEmbeddings: (projectId) => client.post(`/projects/${projectId}/generate-embeddings`),
+  compute: (projectId) => client.post(`/projects/${projectId}/compute-similarity`),
   getNovelty: (projectId) => client.get(`/projects/${projectId}/novelty`),
   list: (projectId) => client.get(`/projects/${projectId}/similarity`),
 };
 
 // ============== Comparative Analysis (Phase 5) ==============
 export const analysis = {
-  generate: (projectId, data) => client.post(`/projects/${projectId}/compare`, data),
+  generate: (projectId, topK = 5) => client.post(`/projects/${projectId}/generate-comparison?top_k=${topK}`),
   get: (projectId) => client.get(`/projects/${projectId}/comparison`),
 };
 
@@ -60,7 +62,7 @@ export const draft = {
 
 // ============== Venue Recommendations (Phase 7) ==============
 export const venues = {
-  get: (projectId) => client.get(`/projects/${projectId}/recommendations`),
+  get: (projectId) => client.post('/recommendations/venues', { project_id: projectId }),
 };
 
 // ============== Patent Claims (Phase 8) ==============
