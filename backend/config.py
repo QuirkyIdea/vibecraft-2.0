@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     # API
     api_prefix: str = "/api"
     
+    # Phase 10: Compliance & Production
+    compliance_mode: bool = False  # Set to True for institutional environments
+    audit_logs_enabled: bool = True
+
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

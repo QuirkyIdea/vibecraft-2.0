@@ -342,5 +342,372 @@ class ComparativeAnalysis(Base):
         return f"<ComparativeAnalysis(project={self.project_id}, v={self.version})>"
 
 
+# ============== Phase 6: Draft Optimization Models ==============
 
+class SuggestionStatus(str, PyEnum):
+    """Status of a draft suggestion"""
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+
+
+class ChangeType(str, PyEnum):
+    """Type of suggested change"""
+    CLARITY = "clarity"
+    SPECIFICITY = "specificity"
+    OVERLAP_REDUCTION = "overlap_reduction"
+    STRUCTURE = "structure"
+
+
+class PreservesIntent(str, PyEnum):
+    """Whether suggestion preserves author's intent"""
+    YES = "YES"
+    POSSIBLY = "POSSIBLY"
+    NO = "NO"
+
+
+class DraftVersion(Base):
+    """
+    DraftVersion model - stores user's draft text for optimization.
+    
+    Phase 6: Tracks original text and version history.
+    """
+    __tablename__ = "draft_versions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    version = Column(Integer, default=1, nullable=False)
+    original_text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    project = relationship("Project", backref="draft_versions")
+    suggestions = relationship("DraftSuggestion", back_populates="draft_version", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<DraftVersion(project={self.project_id}, v={self.version})>"
+
+
+class DraftSuggestion(Base):
+    """
+    DraftSuggestion model - stores individual optimization suggestions.
+    
+    Phase 6: Each suggestion is localized, explainable, and rejectable.
+    """
+    __tablename__ = "draft_suggestions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    draft_version_id = Column(Integer, ForeignKey("draft_versions.id"), nullable=False)
+    
+    # The original text snippet being suggested for change
+    original_snippet = Column(Text, nullable=False)
+    
+    # The suggested revision
+    suggested_revision = Column(Text, nullable=False)
+    
+    # Explanation for why this change is suggested
+    reason = Column(Text, nullable=False)
+    
+    # Type of change
+    change_type = Column(Enum(ChangeType), nullable=False)
+    
+    # Whether this preserves the author's intent
+    preserves_intent = Column(Enum(PreservesIntent), nullable=False)
+    
+    # User's decision
+    status = Column(Enum(SuggestionStatus), default=SuggestionStatus.PENDING, nullable=False)
+    
+    # Position in original text (for UI highlighting)
+    start_position = Column(Integer, nullable=True)
+    end_position = Column(Integer, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    draft_version = relationship("DraftVersion", back_populates="suggestions")
+    
+    def __repr__(self):
+        return f"<DraftSuggestion(id={self.id}, type={self.change_type}, status={self.status})>"
+
+
+# ============== Phase 8: Patent Claim Structuring Models ==============
+
+class ClaimType(str, PyEnum):
+    """Type of patent claim"""
+    INDEPENDENT = "INDEPENDENT"
+    DEPENDENT = "DEPENDENT"
+
+
+class ClaimRiskType(str, PyEnum):
+    """Risk type for claim annotations"""
+    BROAD = "BROAD"  # Claim may be too broad
+    OVERLAP = "OVERLAP"  # Overlaps with prior art
+    NEEDS_NARROWING = "NEEDS_NARROWING"  # Should be narrowed
+
+
+class ClaimFlagType(str, PyEnum):
+    """User-flagged concern types"""
+    UNCLEAR = "UNCLEAR"
+    INCORRECT = "INCORRECT"
+    NEEDS_REVIEW = "NEEDS_REVIEW"
+
+
+class ClaimDraft(Base):
+    """
+    ClaimDraft model - stores patent claim drafts.
+    
+    Phase 8: CONCEPTUAL DRAFTS ONLY - NOT LEGAL ADVICE.
+    Versioned and immutable once finalized.
+    """
+    __tablename__ = "claim_drafts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    
+    # Claim structure
+    version = Column(Integer, default=1, nullable=False)
+    claim_number = Column(Integer, nullable=False)  # 1, 2, 3...
+    claim_type = Column(Enum(ClaimType), nullable=False)
+    
+    # Claim content
+    claim_text = Column(Text, nullable=False)
+    technical_feature = Column(Text, nullable=True)  # What feature this covers
+    explanation = Column(Text, nullable=True)  # Why structured this way
+    
+    # Dependency (for dependent claims)
+    parent_claim_id = Column(Integer, ForeignKey("claim_drafts.id"), nullable=True)
+    
+    # State
+    is_immutable = Column(Boolean, default=False, nullable=False)
+    user_edited = Column(Boolean, default=False, nullable=False)
+    
+    # User flags
+    is_flagged = Column(Boolean, default=False, nullable=False)
+    flag_type = Column(Enum(ClaimFlagType), nullable=True)
+    flag_notes = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    project = relationship("Project", backref="claim_drafts")
+    parent_claim = relationship("ClaimDraft", remote_side=[id], backref="dependent_claims")
+    risk_annotations = relationship("ClaimRiskAnnotation", back_populates="claim", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<ClaimDraft(id={self.id}, num={self.claim_number}, type={self.claim_type})>"
+
+
+class ClaimRiskAnnotation(Base):
+    """
+    ClaimRiskAnnotation model - stores risk annotations for claims.
+    
+    Phase 8: Links risks to prior art evidence when applicable.
+    """
+    __tablename__ = "claim_risk_annotations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    claim_id = Column(Integer, ForeignKey("claim_drafts.id"), nullable=False)
+    
+    # Risk info
+    risk_type = Column(Enum(ClaimRiskType), nullable=False)
+    description = Column(Text, nullable=False)
+    
+    # Link to evidence (optional - for OVERLAP risks)
+    evidence_id = Column(Integer, ForeignKey("candidate_evidence.id"), nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    claim = relationship("ClaimDraft", back_populates="risk_annotations")
+    evidence = relationship("CandidateEvidence", backref="risk_annotations")
+    
+    def __repr__(self):
+        return f"<ClaimRiskAnnotation(claim={self.claim_id}, type={self.risk_type})>"
+
+
+class ClaimGenerationMetadata(Base):
+    """
+    ClaimGenerationMetadata - tracks claim generation for auditing.
+    
+    Phase 8: Records model, prompt version, and input hash.
+    """
+    __tablename__ = "claim_generation_metadata"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    
+    # Generation info
+    model_used = Column(String(100), nullable=False)
+    prompt_version = Column(String(20), nullable=False)
+    input_hash = Column(String(64), nullable=False)  # SHA256 of input
+    
+    # Result summary
+    claims_generated = Column(Integer, default=0, nullable=False)
+    independent_claims = Column(Integer, default=0, nullable=False)
+    dependent_claims = Column(Integer, default=0, nullable=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    project = relationship("Project", backref="claim_generations")
+    
+    def __repr__(self):
+        return f"<ClaimGenerationMetadata(project={self.project_id}, claims={self.claims_generated})>"
+
+
+# ============== Phase 9: Human Feedback & Confidence Calibration Models ==============
+
+class FeedbackType(str, PyEnum):
+    """Type of user feedback on AI outputs"""
+    HELPFUL = "HELPFUL"
+    NOT_HELPFUL = "NOT_HELPFUL"
+    AGREE = "AGREE"
+    DISAGREE = "DISAGREE"
+    NEEDS_REVISION = "NEEDS_REVISION"
+    NEEDS_EXPERT = "NEEDS_EXPERT"
+
+
+class OutputType(str, PyEnum):
+    """Type of AI output being rated"""
+    SIMILARITY = "SIMILARITY"
+    SUMMARY = "SUMMARY"
+    DRAFT = "DRAFT"
+    CLAIM = "CLAIM"
+    RECOMMENDATION = "RECOMMENDATION"
+    COMPARATIVE = "COMPARATIVE"
+
+
+class ConfidenceLevel(str, PyEnum):
+    """System confidence level"""
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"  # Never used for legal/patent contexts
+
+
+class UserFeedback(Base):
+    """
+    UserFeedback model - stores human feedback on AI outputs.
+    
+    Phase 9: NEVER alters original AI outputs.
+    Preserves disagreement - no smoothing.
+    """
+    __tablename__ = "user_feedback"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # What output this feedback is for
+    output_id = Column(String(100), nullable=False, index=True)  # e.g., "similarity_1", "claim_5"
+    output_type = Column(Enum(OutputType), nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    
+    # Who gave feedback
+    user_id = Column(String(100), nullable=True)  # Optional user identifier
+    user_role = Column(String(50), nullable=True)  # student / researcher / inventor
+    
+    # The feedback
+    feedback_type = Column(Enum(FeedbackType), nullable=False)
+    comment = Column(Text, nullable=True)
+    
+    # Audit trail
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    ip_hash = Column(String(64), nullable=True)  # Hashed IP for abuse prevention
+    
+    # Relationships
+    project = relationship("Project", backref="user_feedback")
+    
+    def __repr__(self):
+        return f"<UserFeedback(id={self.id}, type={self.feedback_type}, output={self.output_id})>"
+
+
+class ConfidenceCalibration(Base):
+    """
+    ConfidenceCalibration model - tracks confidence state for a project.
+    
+    Phase 9: Rule-based calibration, transparent and reversible.
+    """
+    __tablename__ = "confidence_calibrations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    
+    # Confidence state
+    confidence_level = Column(Enum(ConfidenceLevel), default=ConfidenceLevel.LOW, nullable=False)
+    
+    # Flags
+    human_review_recommended = Column(Boolean, default=True, nullable=False)
+    disagreement_flag = Column(Boolean, default=False, nullable=False)
+    
+    # Calibration notes (list stored as JSON)
+    calibration_notes = Column(Text, nullable=True)  # JSON array of notes
+    
+    # Metrics
+    total_feedback_count = Column(Integer, default=0, nullable=False)
+    disagreement_count = Column(Integer, default=0, nullable=False)
+    agreement_count = Column(Integer, default=0, nullable=False)
+    evidence_count = Column(Integer, default=0, nullable=False)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    project = relationship("Project", backref="confidence_calibration")
+    
+    def __repr__(self):
+        return f"<ConfidenceCalibration(project={self.project_id}, level={self.confidence_level})>"
+
+
+# ============== Phase 10: Audit & Compliance Models ==============
+
+class ActionType(str, PyEnum):
+    """Type of action being audited"""
+    PROJECT_CREATED = "PROJECT_CREATED"
+    FILE_UPLOADED = "FILE_UPLOADED"
+    TEXT_EXTRACTED = "TEXT_EXTRACTED"
+    EVIDENCE_RETRIEVED = "EVIDENCE_RETRIEVED"
+    SIMILARITY_COMPUTED = "SIMILARITY_COMPUTED"
+    NOVELTY_CLASSIFIED = "NOVELTY_CLASSIFIED"
+    DRAFT_OPTIMIZED = "DRAFT_OPTIMIZED"
+    CLAIMS_GENERATED = "CLAIMS_GENERATED"
+    FEEDBACK_SUBMITTED = "FEEDBACK_SUBMITTED"
+    CALIBRATION_UPDATED = "CALIBRATION_UPDATED"
+    COMPLIANCE_CHECK = "COMPLIANCE_CHECK"
+    SYSTEM_STARTUP = "SYSTEM_STARTUP"
+
+
+class AuditLog(Base):
+    """
+    AuditLog model - immutable record of system actions.
+    
+    Phase 10: Full provenance tracking.
+    Append-only. No updates or deletions allowed via API.
+    """
+    __tablename__ = "audit_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # What happened
+    action_type = Column(Enum(ActionType), nullable=False, index=True)
+    
+    # What was affected
+    entity_type = Column(String(50), nullable=False)  # e.g., "Project", "File", "ClaimDraft"
+    entity_id = Column(Integer, nullable=True)        # ID of the affected entity
+    
+    # Who did it
+    user_id = Column(String(100), nullable=True)      # System user ID or IP hash
+    
+    # When
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    
+    # Provenance Metadata (JSON)
+    # Stores: model_version, prompt_version, input_hash, specific parameters, etc.
+    metadata_json = Column(Text, nullable=True)
+    
+    # Compliance Context
+    compliance_mode_active = Column(Boolean, default=False, nullable=False)
+    
+    def __repr__(self):
+        return f"<AuditLog(action={self.action_type}, entity={self.entity_type}:{self.entity_id})>"
 

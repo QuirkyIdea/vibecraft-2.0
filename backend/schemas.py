@@ -6,7 +6,7 @@ All responses are honest - no fake data or simulated progress.
 """
 from datetime import datetime
 from enum import Enum
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -420,4 +420,380 @@ class ComparativeAnalysisSummary(BaseModel):
     generated_at: str
     has_overlaps: bool
     has_differences: bool
+
+
+# ============== Phase 6: Draft Optimization Schemas ==============
+
+class SuggestionStatus(str, Enum):
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+
+
+class ChangeType(str, Enum):
+    CLARITY = "clarity"
+    SPECIFICITY = "specificity"
+    OVERLAP_REDUCTION = "overlap_reduction"
+    STRUCTURE = "structure"
+
+
+class PreservesIntent(str, Enum):
+    YES = "YES"
+    POSSIBLY = "POSSIBLY"
+    NO = "NO"
+
+
+class DraftOptimizeRequest(BaseModel):
+    """Request for draft optimization"""
+    draft_text: str = Field(..., min_length=50, max_length=50000)
+
+
+class DraftSuggestionItem(BaseModel):
+    """Single draft suggestion"""
+    id: Optional[int] = None
+    original_text_snippet: str
+    suggested_revision: str
+    reason_for_change: str
+    change_type: ChangeType
+    preserves_intent: PreservesIntent
+    status: SuggestionStatus = SuggestionStatus.PENDING
+    start_position: Optional[int] = None
+    end_position: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DraftOptimizeResponse(BaseModel):
+    """Response from draft optimization"""
+    success: bool
+    project_id: int
+    draft_version_id: int
+    version: int
+    suggestions: List[DraftSuggestionItem]
+    total_suggestions: int
+    limitations: List[str]
+    disclaimer: str
+    error: Optional[str] = None
+
+
+class SuggestionUpdateRequest(BaseModel):
+    """Request to update suggestion status"""
+    status: SuggestionStatus
+
+
+class SuggestionUpdateResponse(BaseModel):
+    """Response from suggestion update"""
+    success: bool
+    suggestion_id: int
+    new_status: SuggestionStatus
+    message: str
+
+
+class DraftVersionResponse(BaseModel):
+    """Response for a draft version"""
+    id: int
+    project_id: int
+    version: int
+    original_text: str
+    suggestions_count: int
+    pending_count: int
+    accepted_count: int
+    rejected_count: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DraftHistoryResponse(BaseModel):
+    """Response for draft version history"""
+    project_id: int
+    versions: List[DraftVersionResponse]
+    total: int
+
+
+# ============== Phase 7: Venue Recommendation Schemas ==============
+
+class VenueType(str, Enum):
+    CONFERENCE = "CONFERENCE"
+    JOURNAL = "JOURNAL"
+    WORKSHOP = "WORKSHOP"
+
+
+class ReadinessLevel(str, Enum):
+    WORKSHOP = "WORKSHOP"
+    CONFERENCE = "CONFERENCE"
+    JOURNAL = "JOURNAL"
+    REFINE = "REFINE"
+
+
+class VenueRecommendationItem(BaseModel):
+    """Single venue recommendation."""
+    name: str
+    short_name: str
+    venue_type: VenueType
+    domains: List[str]
+    relevance_reason: str
+    submission_formats: List[str]
+    match_strength: str  # "strong", "moderate", "weak"
+    cautions: List[str]
+
+
+class ReadinessNotesResponse(BaseModel):
+    """Readiness assessment for submission."""
+    level: ReadinessLevel
+    explanation: str
+    suggestions: List[str]
+
+
+class VenueRecommendationRequest(BaseModel):
+    """Request for venue recommendations."""
+    project_id: int
+
+
+class VenueRecommendationResponse(BaseModel):
+    """Complete venue recommendation response."""
+    success: bool
+    project_id: int
+    venues: List[VenueRecommendationItem]
+    readiness: ReadinessNotesResponse
+    general_guidance: List[str]
+    limitations: List[str]
+    disclaimer: str
+    keyword_count: int
+    evidence_count: int
+    novelty_risk: NoveltyRiskLevel
+    error: Optional[str] = None
+
+
+# ============== Phase 8: Patent Claim Structuring Schemas ==============
+
+class ClaimType(str, Enum):
+    INDEPENDENT = "INDEPENDENT"
+    DEPENDENT = "DEPENDENT"
+
+
+class ClaimRiskType(str, Enum):
+    BROAD = "BROAD"
+    OVERLAP = "OVERLAP"
+    NEEDS_NARROWING = "NEEDS_NARROWING"
+
+
+class ClaimFlagType(str, Enum):
+    UNCLEAR = "UNCLEAR"
+    INCORRECT = "INCORRECT"
+    NEEDS_REVIEW = "NEEDS_REVIEW"
+
+
+class ClaimDraftItem(BaseModel):
+    """Single claim draft item."""
+    id: Optional[int] = None
+    claim_number: int
+    claim_type: ClaimType
+    claim_text: str
+    technical_feature: str
+    explanation: str
+    parent_claim_number: Optional[int] = None
+    is_flagged: bool = False
+    flag_type: Optional[ClaimFlagType] = None
+    flag_notes: Optional[str] = None
+
+
+class ClaimRiskAnnotationItem(BaseModel):
+    """Risk annotation for a claim."""
+    id: Optional[int] = None
+    claim_number: int
+    risk_type: ClaimRiskType
+    description: str
+    evidence_id: Optional[int] = None
+    evidence_title: Optional[str] = None
+
+
+class ClaimDependencyEdge(BaseModel):
+    """Edge in dependency graph."""
+    from_claim: int
+    to_claim: int
+    label: str = "depends on"
+
+
+class ClaimDependencyGraph(BaseModel):
+    """Visualization-ready dependency graph."""
+    nodes: List[Dict[str, Any]]
+    edges: List[ClaimDependencyEdge]
+    root_claims: List[int]
+
+
+class AttorneyHandoffNotes(BaseModel):
+    """Notes for attorney handoff."""
+    independent_claims: int
+    dependent_claims: int
+    review_areas: List[str]
+    prior_art_notes: str
+    novelty_risk: str
+    risk_recommendation: str
+    raw_text: str
+
+
+class ClaimGenerationRequest(BaseModel):
+    """Request to generate claim structure."""
+    # No body needed - uses project data
+    pass
+
+
+class ClaimGenerationResponse(BaseModel):
+    """Complete claim generation response."""
+    success: bool
+    project_id: int
+    claims: List[ClaimDraftItem]
+    risks: List[ClaimRiskAnnotationItem]
+    dependency_graph: ClaimDependencyGraph
+    attorney_handoff: AttorneyHandoffNotes
+    disclaimer: str
+    version: int
+    generation_id: int
+    error: Optional[str] = None
+
+
+class ClaimUpdateRequest(BaseModel):
+    """Request to update a claim."""
+    claim_text: str
+    technical_feature: Optional[str] = None
+    explanation: Optional[str] = None
+
+
+class ClaimUpdateResponse(BaseModel):
+    """Response after updating a claim."""
+    success: bool
+    claim_id: int
+    new_version: int
+    message: str
+
+
+class ClaimFlagRequest(BaseModel):
+    """Request to flag a claim."""
+    flag_type: ClaimFlagType
+    notes: Optional[str] = None
+
+
+class ClaimFlagResponse(BaseModel):
+    """Response after flagging a claim."""
+    success: bool
+    claim_id: int
+    message: str
+
+
+class ClaimsListResponse(BaseModel):
+    """Response listing all claims for a project."""
+    project_id: int
+    claims: List[ClaimDraftItem]
+    risks: List[ClaimRiskAnnotationItem]
+    total_claims: int
+    disclaimer: str
+
+
+# ============== Phase 9: Feedback & Calibration Schemas ==============
+
+class FeedbackTypeResponse(str, Enum):
+    """Feedback type enum for responses."""
+    HELPFUL = "HELPFUL"
+    NOT_HELPFUL = "NOT_HELPFUL"
+    AGREE = "AGREE"
+    DISAGREE = "DISAGREE"
+    NEEDS_REVISION = "NEEDS_REVISION"
+    NEEDS_EXPERT = "NEEDS_EXPERT"
+
+
+class ConfidenceLevelResponse(str, Enum):
+    """Confidence level enum for responses."""
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+
+class FeedbackRequest(BaseModel):
+    """Request to submit feedback."""
+    output_id: str
+    output_type: str
+    feedback_type: str
+    comment: Optional[str] = None
+
+
+class FeedbackResponse(BaseModel):
+    """Response after submitting feedback."""
+    success: bool
+    feedback_id: int
+    message: str
+    timestamp: str
+
+
+class FeedbackItem(BaseModel):
+    """Single feedback item."""
+    id: int
+    output_id: str
+    output_type: str
+    feedback_type: str
+    comment: Optional[str]
+    timestamp: str
+
+
+class FeedbackSummaryResponse(BaseModel):
+    """Aggregated feedback summary for an output."""
+    output_id: str
+    total_count: int
+    helpful_count: int
+    not_helpful_count: int
+    agree_count: int
+    disagree_count: int
+    needs_revision_count: int
+    needs_expert_count: int
+    disagreement_rate: float
+    recent_comments: List[str]
+
+
+class ProjectFeedbackStatsResponse(BaseModel):
+    """Project-level feedback statistics."""
+    project_id: int
+    total_feedback: int
+    total_outputs_rated: int
+    overall_disagreement_rate: float
+    outputs_needing_review: int
+    recent_feedback: List[FeedbackItem]
+
+
+class ConfidenceCalibrationResponse(BaseModel):
+    """Confidence calibration state."""
+    project_id: int
+    confidence_level: ConfidenceLevelResponse
+    human_review_recommended: bool
+    disagreement_flag: bool
+    calibration_notes: List[str]
+    metrics: Dict[str, Any]
+    badge_properties: Dict[str, str]
+    timestamp: str
+
+
+# ============== Phase 10: Audit & Compliance Schemas ==============
+
+class AuditLogItem(BaseModel):
+    """Single audit log entry."""
+    id: int
+    action_type: str
+    entity_type: str
+    entity_id: Optional[int]
+    user_id: Optional[str]
+    created_at: datetime
+    metadata: Optional[Dict[str, Any]] = None
+
+    class Config:
+        from_attributes = True
+
+class AuditLogListResponse(BaseModel):
+    """List of audit logs."""
+    logs: List[AuditLogItem]
+
+class ComplianceStatusResponse(BaseModel):
+    """System compliance status."""
+    compliance_mode_active: bool
+    restricted_features: List[str]
+    audit_logging_enabled: bool
+
 
