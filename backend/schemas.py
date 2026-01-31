@@ -82,6 +82,9 @@ class AnalysisStateResponse(BaseModel):
     novelty_risk: NoveltyRiskLevel = NoveltyRiskLevel.UNKNOWN
     max_similarity_score: Optional[float] = None
     top_evidence_id: Optional[int] = None
+    # Phase 5 additions
+    comparison_generated: bool = False
+    comparison_version: Optional[int] = None
     analysis_status: AnalysisStatus = AnalysisStatus.NOT_STARTED
     ai_explanations_generated: bool = False
     last_ai_action: AIAction = AIAction.NONE
@@ -344,3 +347,77 @@ class SimilarityListResponse(BaseModel):
     matches: List[SimilarityMatch]
     total: int
     notes: str = "Similarity based on semantic comparison. Higher score = more overlap."
+
+
+# ============== Phase 5: Comparative Analysis Schemas ==============
+
+class OverlapPoint(BaseModel):
+    """Single overlap between idea and evidence"""
+    idea_concept: str
+    evidence_concept: str
+    evidence_id: Optional[int] = None
+    evidence_title: Optional[str] = None
+
+
+class DifferencePoint(BaseModel):
+    """Single difference with required uncertainty"""
+    aspect: str
+    description: str
+    uncertainty: str  # Required uncertainty language
+
+
+class EvidenceSummaryItem(BaseModel):
+    """Summary of one evidence document"""
+    evidence_id: int
+    title: str
+    source: str
+    source_url: str
+    similarity_score: float
+    summary: str
+
+
+class ComparativeAnalysisRequest(BaseModel):
+    """Request for comparative analysis"""
+    project_id: int
+    top_k: int = Field(default=5, ge=1, le=10)  # Number of evidence to compare
+
+
+class ComparativeAnalysisResponse(BaseModel):
+    """Complete comparative analysis with evidence grounding"""
+    project_id: int
+    version: int
+    novelty_risk: NoveltyRiskLevel
+    max_similarity: Optional[float]
+    
+    # Evidence summaries
+    evidence_summaries: List[EvidenceSummaryItem]
+    
+    # Analysis sections
+    existing_landscape: str
+    overlap_points: List[OverlapPoint]
+    difference_points: List[DifferencePoint]
+    novelty_explanation: str
+    
+    # Limitations (always present)
+    limitations: List[str]
+    confidence_level: str  # "low", "medium", "high"
+    recommendation: str
+    
+    # Metadata
+    evidence_count: int
+    research_count: int
+    patent_count: int
+    generated_at: str
+
+
+class ComparativeAnalysisSummary(BaseModel):
+    """Summary of comparative analysis for project listing"""
+    project_id: int
+    version: int
+    novelty_risk: NoveltyRiskLevel
+    confidence_level: str
+    evidence_count: int
+    generated_at: str
+    has_overlaps: bool
+    has_differences: bool
+

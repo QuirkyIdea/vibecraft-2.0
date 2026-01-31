@@ -286,6 +286,10 @@ class AnalysisState(Base):
         nullable=True
     )
     
+    # Phase 5: Comparative analysis flags
+    comparison_generated = Column(Boolean, default=False, nullable=False)
+    comparison_version = Column(Integer, nullable=True)
+    
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     # Relationships
@@ -300,6 +304,43 @@ class AnalysisState(Base):
     
     def __repr__(self):
         return f"<AnalysisState(project_id={self.project_id}, risk={self.novelty_risk})>"
+
+
+class ComparativeAnalysis(Base):
+    """
+    ComparativeAnalysis model - stores evidence-grounded comparative summaries.
+    
+    Phase 5: Explains novelty with traceable claims.
+    """
+    __tablename__ = "comparative_analyses"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    version = Column(Integer, default=1, nullable=False)
+    
+    # Evidence used (JSON array of IDs)
+    evidence_ids = Column(Text, nullable=False)
+    
+    # Structured analysis (JSON)
+    existing_work_summary = Column(Text, nullable=True)
+    overlap_analysis = Column(Text, nullable=True)  # JSON array
+    differentiation_analysis = Column(Text, nullable=True)  # JSON array
+    novelty_explanation = Column(Text, nullable=True)
+    limitations = Column(Text, nullable=True)  # JSON array
+    confidence_level = Column(String(20), nullable=True)  # low/medium/high
+    
+    # Metadata
+    input_novelty_risk = Column(String(20), nullable=False)  # Risk at time of generation
+    input_max_similarity = Column(Integer, nullable=True)  # Score at time of generation
+    
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    project = relationship("Project", backref="comparative_analyses")
+    
+    def __repr__(self):
+        return f"<ComparativeAnalysis(project={self.project_id}, v={self.version})>"
+
 
 
 

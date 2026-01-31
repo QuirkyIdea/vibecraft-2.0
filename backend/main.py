@@ -62,11 +62,19 @@ from schemas import (
     SimilarityComputationResponse,
     NoveltyRiskResponse,
     SimilarityMatch,
-    SimilarityListResponse
+    SimilarityListResponse,
+    # Phase 5 schemas
+    ComparativeAnalysisRequest,
+    ComparativeAnalysisResponse,
+    ComparativeAnalysisSummary,
+    OverlapPoint,
+    DifferencePoint,
+    EvidenceSummaryItem
 )
 from models import (
     AnalysisStatus, AIAction, ExtractedText, CandidateEvidence, EvidenceSource,
-    NoveltyRiskLevel as NoveltyRiskLevelModel, IdeaEmbedding, EvidenceEmbedding, SimilarityScore
+    NoveltyRiskLevel as NoveltyRiskLevelModel, IdeaEmbedding, EvidenceEmbedding, SimilarityScore,
+    ComparativeAnalysis
 )
 import crud
 import ai_service
@@ -74,6 +82,7 @@ import text_extraction
 import retrieval_service
 import embedding_service
 import similarity_engine
+import comparative_service
 
 
 settings = get_settings()
@@ -1308,6 +1317,301 @@ def list_similarity_scores(
     )
 
 
+# ============== Phase 5: Comparative Analysis Endpoints ==============
+
+@app.post(
+    f"{settings.api_prefix}/projects/{{project_id}}/generate-comparison",
+    response_model=ComparativeAnalysisResponse,
+    tags=["Comparative Analysis"]
+)
+def generate_comparison(
+    project_id: int,
+    top_k: int = 5,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate evidence-grounded comparative analysis.
+    
+    Explains WHY the novelty risk is what it is.
+    
+    HARD RULES:
+    - Every claim traces to real evidence
+    - Uncertainty language is REQUIRED
+    - LLM cannot override similarity scores
+    - Limitations are always stated
+    """
+    db_project = crud.get_project(db, project_id)
+    if not db_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with id {project_id} not found"
+        )
+    
+    # Get idea text
+    idea_text = db_project.idea_text
+    if not idea_text:
+        extracted = db.query(ExtractedText).filter(
+            ExtractedText.project_id == project_id
+        ).first()
+        if extracted:
+            idea_text = extracted.content[:3000]
+    
+    if not idea_text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No idea text available. Add idea text or extract from files first."
+        )
+    
+    # Get top similarity scores
+    scores = db.query(SimilarityScore).filter(
+        SimilarityScore.project_id == project_id
+    ).order_by(SimilarityScore.score.desc()).limit(top_k).all()
+    
+    if not scores:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No similarity scores found. Compute similarity first."
+        )
+    
+    # Build evidence items for comparison
+    evidence_items = []
+    evidence_summaries = []
+    research_count = 0
+    patent_count = 0
+    
+    for s in scores:
+        ev = db.query(CandidateEvidence).filter(
+            CandidateEvidence.id == s.evidence_id
+        ).first()
+        if ev:
+            evidence_items.append({
+                "id": ev.id,
+                "title": ev.title,
+                "source": ev.source_name.value,
+                "source_url": ev.source_url,
+                "abstract": ev.abstract or "",
+                "similarity": s.score_float,
+                "type": ev.source_type
+            })
+            if ev.source_type == "paper":
+                research_count += 1
+            else:
+                patent_count += 1
+    
+    # Get current novelty risk
+    overall_risk = "UNKNOWN"
+    max_similarity = 0.0
+    if db_project.analysis_state:
+        overall_risk = db_project.analysis_state.novelty_risk.value
+        if db_project.analysis_state.max_similarity_score:
+            max_similarity = db_project.analysis_state.max_similarity_score / 10000.0
+    
+    # Generate multi-evidence comparison
+    analysis_result = comparative_service.generate_multi_evidence_comparison(
+        idea_text=idea_text,
+        evidence_items=evidence_items,
+        overall_risk=overall_risk,
+        max_similarity=max_similarity
+    )
+    
+    if not analysis_result.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Comparative analysis failed: {analysis_result.get('error', 'Unknown error')}"
+        )
+    
+    # Build limitations
+    limitations = comparative_service.build_limitations_section(
+        evidence_count=len(evidence_items),
+        research_count=research_count,
+        patent_count=patent_count,
+        max_similarity=max_similarity
+    )
+    
+    # Add any from LLM response
+    if "limitations" in analysis_result:
+        limitations.extend(analysis_result.get("limitations", []))
+    
+    # Get next version number
+    last_analysis = db.query(ComparativeAnalysis).filter(
+        ComparativeAnalysis.project_id == project_id
+    ).order_by(ComparativeAnalysis.version.desc()).first()
+    next_version = (last_analysis.version + 1) if last_analysis else 1
+    
+    # Store in database
+    new_analysis = ComparativeAnalysis(
+        project_id=project_id,
+        version=next_version,
+        evidence_ids=json.dumps([e["id"] for e in evidence_items]),
+        existing_work_summary=analysis_result.get("existing_landscape", ""),
+        overlap_analysis=json.dumps(analysis_result.get("key_overlaps", [])),
+        differentiation_analysis=json.dumps(analysis_result.get("potential_differentiators", [])),
+        novelty_explanation=analysis_result.get("risk_explanation", ""),
+        limitations=json.dumps(limitations),
+        confidence_level=analysis_result.get("confidence_level", "medium"),
+        input_novelty_risk=overall_risk,
+        input_max_similarity=int(max_similarity * 10000)
+    )
+    db.add(new_analysis)
+    
+    # Update analysis state
+    if db_project.analysis_state:
+        db_project.analysis_state.comparison_generated = True
+        db_project.analysis_state.comparison_version = next_version
+    
+    db.commit()
+    
+    # Build evidence summaries for response
+    for ev in evidence_items:
+        evidence_summaries.append(EvidenceSummaryItem(
+            evidence_id=ev["id"],
+            title=ev["title"],
+            source=ev["source"],
+            source_url=ev["source_url"],
+            similarity_score=ev["similarity"],
+            summary=f"Evidence with {ev['similarity']:.2f} similarity"
+        ))
+    
+    # Build overlap and difference points
+    overlap_points = []
+    for overlap in analysis_result.get("key_overlaps", []):
+        if isinstance(overlap, dict):
+            overlap_points.append(OverlapPoint(
+                idea_concept=overlap.get("concept", ""),
+                evidence_concept=", ".join(overlap.get("evidence_titles", [])),
+                evidence_id=None,
+                evidence_title=None
+            ))
+    
+    difference_points = []
+    for diff in analysis_result.get("potential_differentiators", []):
+        if isinstance(diff, dict):
+            difference_points.append(DifferencePoint(
+                aspect=diff.get("aspect", ""),
+                description=diff.get("description", ""),
+                uncertainty=diff.get("uncertainty", "Requires verification")
+            ))
+    
+    return ComparativeAnalysisResponse(
+        project_id=project_id,
+        version=next_version,
+        novelty_risk=NoveltyRiskLevel(overall_risk),
+        max_similarity=max_similarity,
+        evidence_summaries=evidence_summaries,
+        existing_landscape=analysis_result.get("existing_landscape", ""),
+        overlap_points=overlap_points,
+        difference_points=difference_points,
+        novelty_explanation=analysis_result.get("risk_explanation", ""),
+        limitations=limitations,
+        confidence_level=analysis_result.get("confidence_level", "medium"),
+        recommendation=analysis_result.get("recommendation", "Human expert review recommended."),
+        evidence_count=len(evidence_items),
+        research_count=research_count,
+        patent_count=patent_count,
+        generated_at=datetime.utcnow().isoformat()
+    )
+
+
+@app.get(
+    f"{settings.api_prefix}/projects/{{project_id}}/comparison",
+    response_model=ComparativeAnalysisResponse,
+    tags=["Comparative Analysis"]
+)
+def get_comparison(project_id: int, db: Session = Depends(get_db)):
+    """
+    Get latest comparative analysis for a project.
+    
+    Returns the most recent version of evidence-grounded analysis.
+    """
+    db_project = crud.get_project(db, project_id)
+    if not db_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with id {project_id} not found"
+        )
+    
+    # Get latest analysis
+    analysis = db.query(ComparativeAnalysis).filter(
+        ComparativeAnalysis.project_id == project_id
+    ).order_by(ComparativeAnalysis.version.desc()).first()
+    
+    if not analysis:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No comparative analysis found. Generate one first."
+        )
+    
+    # Parse stored JSON fields
+    evidence_ids = json.loads(analysis.evidence_ids) if analysis.evidence_ids else []
+    overlap_raw = json.loads(analysis.overlap_analysis) if analysis.overlap_analysis else []
+    diff_raw = json.loads(analysis.differentiation_analysis) if analysis.differentiation_analysis else []
+    limitations = json.loads(analysis.limitations) if analysis.limitations else []
+    
+    # Build evidence summaries
+    evidence_summaries = []
+    research_count = 0
+    patent_count = 0
+    for ev_id in evidence_ids:
+        ev = db.query(CandidateEvidence).filter(CandidateEvidence.id == ev_id).first()
+        score = db.query(SimilarityScore).filter(
+            SimilarityScore.project_id == project_id,
+            SimilarityScore.evidence_id == ev_id
+        ).first()
+        if ev:
+            evidence_summaries.append(EvidenceSummaryItem(
+                evidence_id=ev.id,
+                title=ev.title,
+                source=ev.source_name.value,
+                source_url=ev.source_url,
+                similarity_score=score.score_float if score else 0.0,
+                summary=f"Retrieved from {ev.source_name.value}"
+            ))
+            if ev.source_type == "paper":
+                research_count += 1
+            else:
+                patent_count += 1
+    
+    # Build overlap points
+    overlap_points = []
+    for overlap in overlap_raw:
+        if isinstance(overlap, dict):
+            overlap_points.append(OverlapPoint(
+                idea_concept=overlap.get("concept", ""),
+                evidence_concept=", ".join(overlap.get("evidence_titles", [])),
+                evidence_id=None,
+                evidence_title=None
+            ))
+    
+    # Build difference points
+    difference_points = []
+    for diff in diff_raw:
+        if isinstance(diff, dict):
+            difference_points.append(DifferencePoint(
+                aspect=diff.get("aspect", ""),
+                description=diff.get("description", ""),
+                uncertainty=diff.get("uncertainty", "Requires verification")
+            ))
+    
+    return ComparativeAnalysisResponse(
+        project_id=project_id,
+        version=analysis.version,
+        novelty_risk=NoveltyRiskLevel(analysis.input_novelty_risk),
+        max_similarity=analysis.input_max_similarity / 10000.0 if analysis.input_max_similarity else None,
+        evidence_summaries=evidence_summaries,
+        existing_landscape=analysis.existing_work_summary or "",
+        overlap_points=overlap_points,
+        difference_points=difference_points,
+        novelty_explanation=analysis.novelty_explanation or "",
+        limitations=limitations,
+        confidence_level=analysis.confidence_level or "medium",
+        recommendation="Human expert review recommended.",
+        evidence_count=len(evidence_ids),
+        research_count=research_count,
+        patent_count=patent_count,
+        generated_at=analysis.created_at.isoformat()
+    )
+
+
 # ============== System Info ==============
 
 @app.get(f"{settings.api_prefix}/system/status", tags=["System"])
@@ -1320,8 +1624,8 @@ def system_status():
     llm_configured = bool(settings.llm_api_key and settings.llm_api_key != "your-nebius-api-key-here")
     
     return {
-        "phase": 4,
-        "version": "0.4.0",
+        "phase": 5,
+        "version": "0.5.0",
         "ai_provider": settings.llm_provider if llm_configured else None,
         "ai_model": settings.llm_model if llm_configured else None,
         "embedding_model": settings.embedding_model,
@@ -1340,30 +1644,28 @@ def system_status():
             "Evidence storage and auditing",
             "Embedding generation (text-embedding-3-small)",
             "Cosine similarity computation",
-            "Novelty risk classification (GREEN/YELLOW/RED/UNKNOWN)"
+            "Novelty risk classification (GREEN/YELLOW/RED/UNKNOWN)",
+            "Comparative analysis: overlap/difference",
+            "Evidence-grounded explanations"
         ],
         "not_implemented": [
             "Multi-agent orchestration",
-            "LLM explanation of similarity",
             "Patent legal analysis"
         ],
-        "phase_4_features": {
-            "similarity_scoring": "Deterministic cosine similarity",
-            "novelty_thresholds": {
-                "research_red": settings.research_red_threshold,
-                "research_yellow": settings.research_yellow_threshold,
-                "patent_red": settings.patent_red_threshold,
-                "patent_yellow": settings.patent_yellow_threshold
-            },
-            "evidence_attribution": "Every score links to specific evidence"
+        "phase_5_features": {
+            "comparative_analysis": "Evidence-grounded overlap/difference",
+            "uncertainty_language": "Required in all explanations",
+            "limitations_section": "Always present",
+            "evidence_tracing": "Every claim links to evidence"
         },
-        "notes": "Phase 4 enables REAL similarity scoring. Every result is traceable and reproducible."
+        "notes": "Phase 5 explains WHY novelty risk exists. Every claim is traceable."
     }
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
