@@ -23,6 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 
+# Environment files with secrets
+.env
+.env.*
+backend/.env
+backend/.env.*
+
 backend/venv/
 backend/*.db
 backend/uploads/*

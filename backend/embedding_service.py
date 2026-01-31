@@ -47,21 +47,23 @@ def generate_embedding(text: str) -> EmbeddingResult:
     """
     text_hash = compute_text_hash(text)
     
-    if not settings.llm_api_key or settings.llm_api_key == "your-nebius-api-key-here":
+    api_key = settings.github_token
+    
+    if not api_key:
         return EmbeddingResult(
             success=False,
             embedding=None,
             text_hash=text_hash,
             model_name=settings.embedding_model,
             dimensions=settings.embedding_dimensions,
-            error="LLM API key not configured. Cannot generate embeddings."
+            error="GITHUB_TOKEN not configured. Cannot generate embeddings."
         )
     
     try:
         # Use same API as LLM service
         client = OpenAI(
-            api_key=settings.llm_api_key,
-            base_url=settings.llm_base_url
+            api_key=api_key,
+            base_url=settings.embedding_base_url
         )
         
         # Truncate text to avoid token limits

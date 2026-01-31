@@ -24,13 +24,15 @@ class Settings(BaseSettings):
     llm_provider: str = "nebius"
     llm_base_url: str = "https://api.tokenfactory.nebius.com/v1/"
     llm_api_key: str = ""
+    github_token: str = "" # For GitHub Models embeddings
     llm_model: str = "Qwen/Qwen3-32B"
     llm_max_tokens: int = 1000
     llm_timeout_seconds: int = 30
     
     # Embedding Configuration (Phase 4)
-    embedding_model: str = "text-embedding-3-small"
-    embedding_dimensions: int = 1536
+    embedding_model: str = "openai/text-embedding-3-large"
+    embedding_dimensions: int = 3072
+    embedding_base_url: str = "https://models.github.ai/inference"
     
     # Novelty Thresholds - Research Papers
     research_red_threshold: float = 0.80
@@ -46,6 +48,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"
     
     @property
     def allowed_extensions_list(self) -> list[str]:
