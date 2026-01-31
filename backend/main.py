@@ -1,5 +1,5 @@
 """
-Inventix AI Backend - Phase 2
+Inventix AI Backend - Phase 3
 FastAPI Application Entry Point
 
 This backend provides:
@@ -7,21 +7,27 @@ This backend provides:
 - File upload and storage
 - Truthful analysis state tracking
 - AI ASSISTANCE (not decisions!)
+- Text extraction from documents
+- Evidence retrieval from external sources
 
-AI Features (Phase 2):
-- Idea clarification
-- Text rewriting
-- Risk explanation
+Phase 3 Features:
+- PDF/DOCX text extraction
+- LLM-based keyword extraction
+- Research paper retrieval (Semantic Scholar)
+- Patent retrieval (USPTO)
+- Auditable evidence storage
 
 HARD RULES:
 - AI outputs are ASSISTIVE ONLY
 - No novelty scores or percentages
 - No legal/academic claims
-- All outputs include disclaimers
+- No similarity judgments
+- All retrieved evidence is "candidates" only
 """
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List
+import json
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File as FastAPIFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -40,11 +46,21 @@ from schemas import (
     SuccessResponse,
     ErrorResponse,
     AIAssistanceRequest,
-    AIAssistanceResponse
+    AIAssistanceResponse,
+    # Phase 3 schemas
+    TextExtractionResult,
+    KeywordExtractionRequest,
+    KeywordExtractionResponse,
+    RetrievalRequest,
+    RetrievalResponse,
+    ProjectEvidenceResponse,
+    EvidenceCandidateResponse
 )
-from models import AnalysisStatus, AIAction
+from models import AnalysisStatus, AIAction, ExtractedText, CandidateEvidence, EvidenceSource
 import crud
 import ai_service
+import text_extraction
+import retrieval_service
 
 settings = get_settings()
 
@@ -54,7 +70,7 @@ async def lifespan(app: FastAPI):
     """Application lifespan - runs on startup and shutdown"""
     # Startup
     print("=" * 50)
-    print("Starting Inventix AI Backend - Phase 2")
+    print("Starting Inventix AI Backend - Phase 3")
     print("=" * 50)
     init_db()
     ensure_upload_dir()
@@ -70,6 +86,8 @@ async def lifespan(app: FastAPI):
     else:
         print("✓ LLM API key: configured")
     
+    print("✓ Text Extraction: PDF, DOCX, TXT")
+    print("✓ External Retrieval: Semantic Scholar, USPTO")
     print("=" * 50)
     yield
     # Shutdown
@@ -79,16 +97,19 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Inventix AI Backend",
     description="""
-    Phase 2 Backend - AI Assistance Layer
+    Phase 3 Backend - Evidence-Based Retrieval Layer
     
     This backend provides:
     - Honest, persistent data storage
     - AI assistance for idea clarification, text rewriting, and risk awareness
+    - REAL text extraction from PDF/DOCX files
+    - REAL evidence retrieval from Semantic Scholar and USPTO
     
     AI outputs are clearly labeled as ASSISTIVE ONLY.
-    No novelty scores, no legal claims, no certainty.
+    Retrieved documents are CANDIDATE EVIDENCE only.
+    No novelty scores, no similarity judgments, no legal claims.
     """,
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan
 )
 
@@ -110,10 +131,12 @@ def health_check():
     llm_configured = bool(settings.llm_api_key and settings.llm_api_key != "your-nebius-api-key-here")
     return {
         "status": "healthy",
-        "phase": 2,
+        "phase": 3,
         "ai_enabled": llm_configured,
         "ai_provider": settings.llm_provider if llm_configured else None,
-        "message": "Phase 2 backend operational. AI assistance available." if llm_configured else "Phase 2 backend operational. LLM not configured."
+        "text_extraction": True,
+        "evidence_retrieval": True,
+        "message": "Phase 3 backend operational. Text extraction and evidence retrieval available."
     }
 
 
@@ -239,8 +262,6 @@ async def upload_file(
     
     Accepted formats: PDF, DOCX, DOC, TXT
     Max size: 50MB
-    
-    Note: Files are stored but NOT processed by AI.
     """
     # Check project exists
     if not crud.get_project(db, project_id):
@@ -331,6 +352,417 @@ def download_file(file_id: int, db: Session = Depends(get_db)):
         path=db_file.storage_path,
         filename=db_file.original_filename,
         media_type="application/octet-stream"
+    )
+
+
+# ============== Phase 3: Text Extraction Endpoints ==============
+
+@app.post(
+    f"{settings.api_prefix}/projects/{{project_id}}/extract-text",
+    response_model=TextExtractionResult,
+    tags=["Text Extraction"]
+)
+def extract_text_from_project(project_id: int, db: Session = Depends(get_db)):
+    """
+    Extract real text from all uploaded files in a project.
+    
+    Supports: PDF, DOCX, TXT
+    
+    ⚠️ Note: This extracts ACTUAL text only.
+    - Scanned PDFs may yield no text
+    - Results are stored in database
+    """
+    db_project = crud.get_project(db, project_id)
+    if not db_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with id {project_id} not found"
+        )
+    
+    files = crud.get_project_files(db, project_id)
+    if not files:
+        return TextExtractionResult(
+            success=False,
+            project_id=project_id,
+            files_processed=0,
+            total_characters=0,
+            extraction_notes="No files uploaded to extract text from.",
+            errors=["No files found"]
+        )
+    
+    total_chars = 0
+    processed = 0
+    errors = []
+    
+    for file in files:
+        # Check if already extracted
+        existing = db.query(ExtractedText).filter(ExtractedText.file_id == file.id).first()
+        
+        result = text_extraction.extract_text(file.storage_path, file.file_type)
+        
+        if result.success:
+            if existing:
+                # Update existing
+                existing.content = result.content
+                existing.character_count = result.character_count
+                existing.extraction_method = result.method
+                existing.extracted_at = datetime.utcnow()
+                existing.version += 1
+            else:
+                # Create new
+                extracted = ExtractedText(
+                    project_id=project_id,
+                    file_id=file.id,
+                    content=result.content,
+                    extraction_method=result.method,
+                    character_count=result.character_count
+                )
+                db.add(extracted)
+            
+            total_chars += result.character_count
+            processed += 1
+        else:
+            errors.append(f"{file.original_filename}: {result.error}")
+    
+    # Update analysis state
+    if db_project.analysis_state:
+        db_project.analysis_state.text_extracted = processed > 0
+        db_project.analysis_state.notes = f"Text extracted from {processed} file(s)."
+    
+    db.commit()
+    
+    return TextExtractionResult(
+        success=processed > 0,
+        project_id=project_id,
+        files_processed=processed,
+        total_characters=total_chars,
+        extraction_notes=f"Extracted text from {processed}/{len(files)} files. Total {total_chars} characters.",
+        errors=errors
+    )
+
+
+# ============== Phase 3: Keyword Extraction Endpoints ==============
+
+@app.post(
+    f"{settings.api_prefix}/analysis/extract-keywords",
+    response_model=KeywordExtractionResponse,
+    tags=["Keyword Extraction"]
+)
+def extract_keywords(request: KeywordExtractionRequest, db: Session = Depends(get_db)):
+    """
+    Extract keywords, concepts, and technical phrases using LLM.
+    
+    ⚠️ AI ASSISTANCE ONLY
+    - Keywords are suggestions, not facts
+    - Human review is required
+    """
+    db_project = crud.get_project(db, request.project_id)
+    if not db_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with id {request.project_id} not found"
+        )
+    
+    # Get text: from request, extracted texts, or idea_text
+    text_to_analyze = request.text
+    
+    if not text_to_analyze:
+        # Try extracted texts
+        extracted = db.query(ExtractedText).filter(
+            ExtractedText.project_id == request.project_id
+        ).all()
+        
+        if extracted:
+            text_to_analyze = " ".join([e.content[:2000] for e in extracted])
+        elif db_project.idea_text:
+            text_to_analyze = db_project.idea_text
+        else:
+            return KeywordExtractionResponse(
+                success=False,
+                keywords=[],
+                concepts=[],
+                technical_phrases=[],
+                error="No text available. Upload files and extract text first, or provide text directly."
+            )
+    
+    # Truncate for LLM
+    text_to_analyze = text_to_analyze[:5000]
+    
+    # Use LLM for extraction
+    prompt = retrieval_service.create_keyword_extraction_prompt(text_to_analyze)
+    
+    try:
+        result = ai_service.call_llm(prompt, max_tokens=500)
+        
+        if result.success:
+            # Parse JSON response
+            try:
+                parsed = json.loads(result.ai_output)
+                return KeywordExtractionResponse(
+                    success=True,
+                    keywords=parsed.get("keywords", []),
+                    concepts=parsed.get("concepts", []),
+                    technical_phrases=parsed.get("technical_phrases", [])
+                )
+            except json.JSONDecodeError:
+                # Fallback: extract words from response
+                words = [w.strip() for w in result.ai_output.split(",") if w.strip()]
+                return KeywordExtractionResponse(
+                    success=True,
+                    keywords=words[:10],
+                    concepts=[],
+                    technical_phrases=[],
+                    notes="Keywords extracted (JSON parsing failed, used fallback)."
+                )
+        else:
+            return KeywordExtractionResponse(
+                success=False,
+                keywords=[],
+                concepts=[],
+                technical_phrases=[],
+                error=result.error
+            )
+            
+    except Exception as e:
+        return KeywordExtractionResponse(
+            success=False,
+            keywords=[],
+            concepts=[],
+            technical_phrases=[],
+            error=f"Keyword extraction failed: {str(e)}"
+        )
+
+
+# ============== Phase 3: Evidence Retrieval Endpoints ==============
+
+@app.post(
+    f"{settings.api_prefix}/projects/{{project_id}}/retrieve-papers",
+    response_model=RetrievalResponse,
+    tags=["Evidence Retrieval"]
+)
+async def retrieve_research_papers(
+    project_id: int,
+    request: RetrievalRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve research papers from Semantic Scholar.
+    
+    ⚠️ CANDIDATE EVIDENCE ONLY
+    - These are NOT "similar" to your idea
+    - No similarity scores computed
+    - No novelty claims made
+    - Every result has a verifiable URL
+    """
+    db_project = crud.get_project(db, project_id)
+    if not db_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with id {project_id} not found"
+        )
+    
+    # Get keywords
+    keywords = request.keywords
+    if not keywords:
+        # Use idea text as fallback
+        if db_project.idea_text:
+            keywords = db_project.idea_text.split()[:10]
+        else:
+            return RetrievalResponse(
+                success=False,
+                source="Semantic Scholar",
+                candidates_stored=0,
+                search_query="",
+                retrieval_notes="",
+                error="No keywords provided and no idea text available."
+            )
+    
+    # Call Semantic Scholar
+    result = await retrieval_service.search_research_papers(keywords, limit=request.limit)
+    
+    if not result.success:
+        return RetrievalResponse(
+            success=False,
+            source="Semantic Scholar",
+            candidates_stored=0,
+            search_query=result.search_query,
+            retrieval_notes="",
+            error=result.error
+        )
+    
+    # Store candidates
+    stored = 0
+    for candidate in result.candidates:
+        evidence = CandidateEvidence(
+            project_id=project_id,
+            source_type="paper",
+            title=candidate.title,
+            authors=candidate.authors,
+            abstract=candidate.abstract,
+            source_name=EvidenceSource.SEMANTIC_SCHOLAR,
+            source_url=candidate.source_url,
+            publication_date=candidate.publication_date,
+            search_query=result.search_query
+        )
+        db.add(evidence)
+        stored += 1
+    
+    # Update analysis state
+    if db_project.analysis_state:
+        db_project.analysis_state.evidence_retrieved = True
+        db_project.analysis_state.retrieval_notes = f"Retrieved {stored} research papers. No similarity scores computed."
+    
+    db.commit()
+    
+    return RetrievalResponse(
+        success=True,
+        source="Semantic Scholar",
+        candidates_stored=stored,
+        search_query=result.search_query,
+        retrieval_notes=result.retrieval_notes
+    )
+
+
+@app.post(
+    f"{settings.api_prefix}/projects/{{project_id}}/retrieve-patents",
+    response_model=RetrievalResponse,
+    tags=["Evidence Retrieval"]
+)
+async def retrieve_patents(
+    project_id: int,
+    request: RetrievalRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve patents from USPTO.
+    
+    ⚠️ CANDIDATE EVIDENCE ONLY
+    - These are NOT "similar" to your idea
+    - No similarity scores computed
+    - No novelty claims made
+    - Every result has a verifiable URL
+    """
+    db_project = crud.get_project(db, project_id)
+    if not db_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with id {project_id} not found"
+        )
+    
+    # Get keywords
+    keywords = request.keywords
+    if not keywords:
+        if db_project.idea_text:
+            keywords = db_project.idea_text.split()[:10]
+        else:
+            return RetrievalResponse(
+                success=False,
+                source="USPTO",
+                candidates_stored=0,
+                search_query="",
+                retrieval_notes="",
+                error="No keywords provided and no idea text available."
+            )
+    
+    # Call USPTO
+    result = await retrieval_service.search_patents(keywords, limit=request.limit)
+    
+    if not result.success:
+        return RetrievalResponse(
+            success=False,
+            source="USPTO",
+            candidates_stored=0,
+            search_query=result.search_query,
+            retrieval_notes="",
+            error=result.error
+        )
+    
+    # Store candidates
+    stored = 0
+    for candidate in result.candidates:
+        evidence = CandidateEvidence(
+            project_id=project_id,
+            source_type="patent",
+            title=candidate.title,
+            authors=candidate.authors,
+            abstract=candidate.abstract,
+            source_name=EvidenceSource.USPTO,
+            source_url=candidate.source_url,
+            publication_date=candidate.publication_date,
+            search_query=result.search_query
+        )
+        db.add(evidence)
+        stored += 1
+    
+    # Update analysis state
+    if db_project.analysis_state:
+        db_project.analysis_state.evidence_retrieved = True
+        notes = db_project.analysis_state.retrieval_notes or ""
+        if "patents" not in notes.lower():
+            db_project.analysis_state.retrieval_notes = f"{notes} Retrieved {stored} patents. No similarity scores computed."
+    
+    db.commit()
+    
+    return RetrievalResponse(
+        success=True,
+        source="USPTO",
+        candidates_stored=stored,
+        search_query=result.search_query,
+        retrieval_notes=result.retrieval_notes
+    )
+
+
+@app.get(
+    f"{settings.api_prefix}/projects/{{project_id}}/evidence",
+    response_model=ProjectEvidenceResponse,
+    tags=["Evidence Retrieval"]
+)
+def get_project_evidence(project_id: int, db: Session = Depends(get_db)):
+    """
+    Get all candidate evidence for a project.
+    
+    ⚠️ CANDIDATE EVIDENCE ONLY
+    - No similarity scores
+    - No novelty judgments
+    - Just raw retrieved documents
+    """
+    db_project = crud.get_project(db, project_id)
+    if not db_project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project with id {project_id} not found"
+        )
+    
+    evidence = db.query(CandidateEvidence).filter(
+        CandidateEvidence.project_id == project_id
+    ).all()
+    
+    papers = [e for e in evidence if e.source_type == "paper"]
+    patents = [e for e in evidence if e.source_type == "patent"]
+    
+    return ProjectEvidenceResponse(
+        project_id=project_id,
+        papers=[EvidenceCandidateResponse(
+            id=p.id,
+            title=p.title,
+            authors=p.authors,
+            abstract=p.abstract,
+            source_name=p.source_name.value,
+            source_url=p.source_url,
+            publication_date=p.publication_date,
+            retrieved_at=p.retrieved_at
+        ) for p in papers],
+        patents=[EvidenceCandidateResponse(
+            id=p.id,
+            title=p.title,
+            authors=p.authors,
+            abstract=p.abstract,
+            source_name=p.source_name.value,
+            source_url=p.source_url,
+            publication_date=p.publication_date,
+            retrieved_at=p.retrieved_at
+        ) for p in patents],
+        total_evidence=len(evidence)
     )
 
 
@@ -462,8 +894,8 @@ def system_status():
     llm_configured = bool(settings.llm_api_key and settings.llm_api_key != "your-nebius-api-key-here")
     
     return {
-        "phase": 2,
-        "version": "0.2.0",
+        "phase": 3,
+        "version": "0.3.0",
         "ai_provider": settings.llm_provider if llm_configured else None,
         "ai_model": settings.llm_model if llm_configured else None,
         "implemented": [
@@ -473,28 +905,32 @@ def system_status():
             "Analysis state tracking",
             "AI: Idea clarification (assistive)",
             "AI: Text rewriting (assistive)",
-            "AI: Risk explanation (assistive)"
+            "AI: Risk explanation (assistive)",
+            "Text extraction: PDF, DOCX, TXT",
+            "Keyword extraction (LLM-assisted)",
+            "Research paper retrieval (Semantic Scholar)",
+            "Patent retrieval (USPTO)",
+            "Evidence storage and auditing"
         ],
         "not_implemented": [
             "Novelty scoring",
             "Similarity detection",
-            "Prior art search",
-            "Patent analysis",
-            "Research synthesis",
-            "Multi-agent orchestration",
-            "Document text extraction"
+            "Prior art comparison",
+            "Embeddings / vector search",
+            "Multi-agent orchestration"
         ],
-        "ai_limitations": [
-            "AI outputs are ASSISTIVE ONLY",
-            "No novelty claims or scores",
-            "No legal or academic authority",
+        "phase_3_limitations": [
+            "Retrieved documents are CANDIDATES only",
+            "No similarity scores computed",
+            "No novelty claims or judgments",
             "Human review always required"
         ],
-        "notes": "AI features provide assistance only. Never automated decisions."
+        "notes": "Phase 3 enables REAL data retrieval. Comparison is possible but NOT performed."
     }
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 

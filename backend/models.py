@@ -54,6 +54,8 @@ class Project(Base):
     # Relationships
     files = relationship("File", back_populates="project", cascade="all, delete-orphan")
     analysis_state = relationship("AnalysisState", back_populates="project", uselist=False, cascade="all, delete-orphan")
+    extracted_texts = relationship("ExtractedText", back_populates="project", cascade="all, delete-orphan")
+    candidate_evidence = relationship("CandidateEvidence", back_populates="project", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Project(id={self.id}, name='{self.name}', type={self.type})>"
@@ -77,19 +79,80 @@ class File(Base):
     
     # Relationships
     project = relationship("Project", back_populates="files")
+    extracted_text = relationship("ExtractedText", back_populates="file", uselist=False, cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<File(id={self.id}, original_filename='{self.original_filename}')>"
+
+
+class ExtractedText(Base):
+    """
+    ExtractedText model - stores REAL text extracted from files.
+    
+    Phase 3: No hallucination - only actual document content.
+    """
+    __tablename__ = "extracted_texts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    file_id = Column(Integer, ForeignKey("files.id"), nullable=False, unique=True)
+    content = Column(Text, nullable=False)
+    extraction_method = Column(String(50), nullable=False)  # "pdf", "docx", "text"
+    character_count = Column(Integer, nullable=False)
+    extracted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    version = Column(Integer, default=1, nullable=False)
+    
+    # Relationships
+    project = relationship("Project", back_populates="extracted_texts")
+    file = relationship("File", back_populates="extracted_text")
+    
+    def __repr__(self):
+        return f"<ExtractedText(file_id={self.file_id}, chars={self.character_count})>"
+
+
+class EvidenceSource(str, PyEnum):
+    """Source of candidate evidence"""
+    SEMANTIC_SCHOLAR = "SEMANTIC_SCHOLAR"
+    USPTO = "USPTO"
+    ARXIV = "ARXIV"
+
+
+class CandidateEvidence(Base):
+    """
+    CandidateEvidence model - stores REAL external documents.
+    
+    Phase 3: No similarity scores, no judgments - just evidence candidates.
+    Every item MUST have a verifiable source URL.
+    """
+    __tablename__ = "candidate_evidence"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    source_type = Column(String(50), nullable=False)  # "paper" or "patent"
+    title = Column(String(500), nullable=False)
+    authors = Column(String(500), nullable=False)
+    abstract = Column(Text, nullable=True)
+    source_name = Column(Enum(EvidenceSource), nullable=False)
+    source_url = Column(String(500), nullable=False)  # MUST be verifiable
+    publication_date = Column(String(50), nullable=True)
+    search_query = Column(String(500), nullable=False)  # What keywords were used
+    retrieved_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    project = relationship("Project", back_populates="candidate_evidence")
+    
+    def __repr__(self):
+        return f"<CandidateEvidence(id={self.id}, title='{self.title[:30]}...')>"
 
 
 class AnalysisState(Base):
     """
     AnalysisState model - tracks honest state of project analysis.
     
-    Phase 2 Behavior:
-    - analysis_status moves from NOT_STARTED to ASSISTIVE_ONLY when AI helps
-    - AI outputs are advisory only, never authoritative
-    - No fake progress or percentages
+    Phase 3 additions:
+    - text_extracted: True when files have been processed
+    - evidence_retrieved: True when external retrieval completed
+    - retrieval_notes: Explains limitations
     """
     __tablename__ = "analysis_states"
     
@@ -99,6 +162,10 @@ class AnalysisState(Base):
     # State flags (automatically computed)
     idea_received = Column(Boolean, default=False, nullable=False)
     files_uploaded = Column(Boolean, default=False, nullable=False)
+    
+    # Phase 3: Text extraction and retrieval flags
+    text_extracted = Column(Boolean, default=False, nullable=False)
+    evidence_retrieved = Column(Boolean, default=False, nullable=False)
     
     # Analysis status
     analysis_status = Column(
@@ -119,6 +186,13 @@ class AnalysisState(Base):
         nullable=False
     )
     
+    # Phase 3: Retrieval-specific notes
+    retrieval_notes = Column(
+        Text,
+        default="No evidence retrieval performed yet.",
+        nullable=True
+    )
+    
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     # Relationships
@@ -126,4 +200,5 @@ class AnalysisState(Base):
     
     def __repr__(self):
         return f"<AnalysisState(project_id={self.project_id}, status={self.analysis_status})>"
+
 

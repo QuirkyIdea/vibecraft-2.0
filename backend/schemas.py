@@ -67,11 +67,15 @@ class AnalysisStateResponse(BaseModel):
     project_id: int
     idea_received: bool
     files_uploaded: bool
+    # Phase 3 additions
+    text_extracted: bool = False
+    evidence_retrieved: bool = False
     analysis_status: AnalysisStatus = AnalysisStatus.NOT_STARTED
     ai_explanations_generated: bool = False
     last_ai_action: AIAction = AIAction.NONE
     last_ai_timestamp: Optional[datetime] = None
     notes: str = "No AI analysis performed yet."
+    retrieval_notes: Optional[str] = "No evidence retrieval performed yet."
     updated_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
@@ -163,4 +167,97 @@ class AIAssistanceResponse(BaseModel):
     prompt_version: str
     timestamp: str
     error: Optional[str] = None
+
+
+# ============== Phase 3: Text Extraction Schemas ==============
+
+class ExtractedTextResponse(BaseModel):
+    """Response for extracted text from a file"""
+    id: int
+    project_id: int
+    file_id: int
+    extraction_method: str
+    character_count: int
+    extracted_at: datetime
+    version: int
+    # Content not included by default to avoid large responses
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TextExtractionResult(BaseModel):
+    """Result of text extraction operation"""
+    success: bool
+    project_id: int
+    files_processed: int
+    total_characters: int
+    extraction_notes: str
+    errors: List[str] = []
+
+
+# ============== Phase 3: Keyword Extraction Schemas ==============
+
+class KeywordExtractionRequest(BaseModel):
+    """Request for keyword extraction"""
+    project_id: int
+    text: Optional[str] = None  # If not provided, uses extracted text
+
+
+class KeywordExtractionResponse(BaseModel):
+    """Response from LLM-based keyword extraction"""
+    success: bool
+    keywords: List[str]
+    concepts: List[str]
+    technical_phrases: List[str]
+    notes: str = "Keywords extracted using LLM. This is assistive only."
+    error: Optional[str] = None
+
+
+# ============== Phase 3: Evidence Retrieval Schemas ==============
+
+class EvidenceSource(str, Enum):
+    SEMANTIC_SCHOLAR = "SEMANTIC_SCHOLAR"
+    USPTO = "USPTO"
+    ARXIV = "ARXIV"
+
+
+class EvidenceCandidateResponse(BaseModel):
+    """Single candidate evidence item"""
+    id: int
+    title: str
+    authors: str
+    abstract: Optional[str]
+    source_name: str
+    source_url: str  # MUST be verifiable
+    publication_date: Optional[str]
+    retrieved_at: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RetrievalRequest(BaseModel):
+    """Request for external retrieval"""
+    project_id: int
+    keywords: Optional[List[str]] = None  # If not provided, extracts from project
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+class RetrievalResponse(BaseModel):
+    """Response from external retrieval"""
+    success: bool
+    source: str  # "Semantic Scholar", "USPTO"
+    candidates_stored: int
+    search_query: str
+    retrieval_notes: str  # Explains this is just evidence, no similarity scores
+    error: Optional[str] = None
+
+
+class ProjectEvidenceResponse(BaseModel):
+    """All candidate evidence for a project"""
+    project_id: int
+    papers: List[EvidenceCandidateResponse]
+    patents: List[EvidenceCandidateResponse]
+    total_evidence: int
+    notes: str = "These are candidate documents only. No similarity scores or judgments."
+
 
