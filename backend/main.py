@@ -118,6 +118,7 @@ async def lifespan(app: FastAPI):
     print("✓ External Retrieval: Semantic Scholar, USPTO")
     print("✓ Similarity Scoring: Cosine similarity on embeddings")
     print("✓ Novelty Risk: GREEN/YELLOW/RED/UNKNOWN")
+    print("✓ Draft PatentAI: Integrated via adapter (no separate server needed)")
     print("=" * 50)
     yield
     # Shutdown
