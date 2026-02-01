@@ -107,7 +107,14 @@ Inventix AI provides an **evidence-based, AI-assisted platform** that:
 
 ## 🚀 Setup Instructions
 
-### Prerequisites
+### Option 1: Docker (Recommended - Easy Setup)
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop)
+2. Run `deploy.bat` (Windows) or see [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for other platforms
+3. Access the app at http://localhost:3000
+
+### Option 2: Manual Setup
+
+#### Prerequisites
 - **Node.js** 18+ (for frontend)
 - **Python** 3.11+ (for backend)
 - **Git** (for version control)
