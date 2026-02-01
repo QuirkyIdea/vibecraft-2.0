@@ -1,0 +1,350 @@
+.container {
+    padding: 32px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    text-align: center;
+}
+
+.loadingOrb {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 50%;
+    margin-bottom: 20px;
+}
+
+.loading p {
+    color: var(--text-muted);
+}
+
+/* Header */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    padding: 24px 28px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+}
+
+.headerContent {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.headerIcon {
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 14px;
+    color: white;
+}
+
+.headerContent h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.headerContent p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.overallProgress {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.progressCircle {
+    width: 64px;
+    height: 64px;
+    position: relative;
+}
+
+.progressCircle svg {
+    transform: rotate(-90deg);
+    width: 100%;
+    height: 100%;
+}
+
+.progressBg {
+    fill: none;
+    stroke: var(--bg-tertiary);
+    stroke-width: 3;
+}
+
+.progressFill {
+    fill: none;
+    stroke: var(--accent-primary);
+    stroke-width: 3;
+    stroke-linecap: round;
+}
+
+.progressCircle span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.progressLabel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.progressLabel strong {
+    font-size: 0.9rem;
+}
+
+.progressLabel span {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* Phases */
+.phases {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.phase {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+}
+
+.phaseHeader {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.phaseIndicator {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.phaseInfo {
+    flex: 1;
+}
+
+.phaseInfo h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.phaseInfo p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.phaseProgress {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+.phaseProgress span {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.phaseProgressBar {
+    width: 100px;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.phaseProgressFill {
+    height: 100%;
+    border-radius: 3px;
+}
+
+/* Milestones */
+.milestones {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.milestone {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px;
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.milestone:hover {
+    background: rgba(99, 102, 241, 0.08);
+}
+
+.milestone.completed {
+    opacity: 0.7;
+}
+
+.milestone.completed .milestoneContent h4 {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.milestoneCheck {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--text-muted);
+}
+
+.milestoneCheck:hover {
+    border-color: var(--accent-primary);
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.milestoneContent {
+    flex: 1;
+}
+
+.milestoneContent h4 {
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: 4px;
+    transition: all 0.2s;
+}
+
+.milestoneContent p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.milestoneDate {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    padding: 6px 12px;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+/* Connector */
+.connector {
+    position: absolute;
+    bottom: -24px;
+    left: 50%;
+    transform: translateX(-50%) rotate(90deg);
+    color: var(--text-muted);
+    z-index: 1;
+}
+
+/* Completion Banner */
+.completionBanner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 32px;
+    padding: 24px;
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(22, 163, 74, 0.15));
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 16px;
+    color: var(--success);
+}
+
+.completionBanner h3 {
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+.completionBanner p {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 20px;
+    }
+
+    .header {
+        flex-direction: column;
+        gap: 20px;
+        text-align: center;
+    }
+
+    .headerContent {
+        flex-direction: column;
+    }
+
+    .phaseHeader {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .phaseProgress {
+        align-items: center;
+    }
+
+    .milestone {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .milestoneCheck {
+        align-self: flex-start;
+    }
+
+    .milestoneDate {
+        align-self: flex-start;
+        margin-top: 8px;
+    }
+}

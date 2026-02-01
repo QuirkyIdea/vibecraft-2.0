@@ -1,0 +1,40 @@
+.container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-primary);
+}
+
+.card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 48px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+.card h2 {
+    margin: 24px 0 8px;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.card p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.iconLoading {
+    color: var(--accent-primary);
+}
+
+.iconSuccess {
+    color: var(--success);
+}
+
+.iconError {
+    color: var(--error);
+}
