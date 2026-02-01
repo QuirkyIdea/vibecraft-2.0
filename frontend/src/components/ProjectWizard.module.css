@@ -1,0 +1,462 @@
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 700px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 28px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.headerContent {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.headerIcon {
+    color: var(--accent-primary);
+}
+
+.headerContent h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.headerContent p {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.closeButton {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.closeButton:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 28px;
+    gap: 12px;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.step span {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 0.875rem;
+    font-weight: 600;
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    transition: all 0.3s;
+}
+
+.step p {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.step.active span {
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: white;
+}
+
+.step.completed span {
+    background: var(--success);
+    color: white;
+}
+
+.progressLine {
+    flex: 1;
+    max-width: 60px;
+    height: 2px;
+    background: var(--border-color);
+}
+
+.content {
+    flex: 1;
+    padding: 28px;
+    overflow-y: auto;
+}
+
+/* Type Step */
+.typeStep h3 {
+    font-size: 1.125rem;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.typeGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.typeCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 28px 20px;
+    background: var(--bg-tertiary);
+    border: 2px solid transparent;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.typeCard:hover {
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+}
+
+.typeIcon {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    color: white;
+    margin-bottom: 16px;
+}
+
+.typeCard h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.typeCard p {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.typeFeatures {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.typeFeatures li {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    padding: 4px 0;
+}
+
+.typeFeatures li::before {
+    content: "✓";
+    margin-right: 8px;
+    color: var(--success);
+}
+
+/* Details Step */
+.detailsStep h3 {
+    font-size: 1.125rem;
+    margin-bottom: 24px;
+}
+
+.formGroup {
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.formGroup label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+}
+
+.input,
+.textarea {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 1rem;
+    color: var(--text-primary);
+    transition: all 0.2s;
+}
+
+.input:focus,
+.textarea:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+.charCount {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* Document Step */
+.documentStep h3 {
+    font-size: 1.125rem;
+    margin-bottom: 8px;
+}
+
+.stepDescription {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+}
+
+.uploadArea {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.fileInput {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.uploadLabel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    background: var(--bg-tertiary);
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text-muted);
+    gap: 8px;
+}
+
+.uploadLabel:hover {
+    border-color: var(--accent-primary);
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.uploadLabel span {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+}
+
+.uploadLabel small {
+    font-size: 0.8rem;
+}
+
+.orDivider {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+}
+
+.orDivider::before,
+.orDivider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border-color);
+}
+
+.orDivider span {
+    padding: 0 16px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.documentTextarea {
+    width: 100%;
+    padding: 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    resize: vertical;
+    min-height: 150px;
+    font-family: inherit;
+}
+
+.documentTextarea:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.documentInfo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(34, 197, 94, 0.1);
+    border-radius: 8px;
+    color: var(--success);
+    font-size: 0.875rem;
+}
+
+/* Actions */
+.actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.backButton {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.backButton:hover {
+    background: var(--bg-tertiary);
+}
+
+.nextButton,
+.createButton {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border: none;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.nextButton:hover,
+.createButton:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+/* Creating Step */
+.creatingStep {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.creatingStep h3 {
+    margin: 24px 0 8px;
+    font-size: 1.25rem;
+}
+
+.creatingStep p {
+    color: var(--text-muted);
+}
+
+.loadingIcon {
+    color: var(--accent-primary);
+}
+
+.successIcon {
+    color: var(--success);
+}
+
+.error {
+    color: var(--error);
+    font-size: 0.875rem;
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 8px;
+}
+
+@media (max-width: 640px) {
+    .modal {
+        max-height: 95vh;
+    }
+
+    .typeGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .actions {
+        flex-direction: column-reverse;
+        gap: 12px;
+    }
+
+    .backButton,
+    .nextButton,
+    .createButton {
+        width: 100%;
+        justify-content: center;
+    }
+}

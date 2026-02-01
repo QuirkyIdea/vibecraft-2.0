@@ -1,0 +1,199 @@
+.sidebar {
+    position: fixed;
+    top: 70px;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    background: rgba(18, 18, 26, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-right: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-lg);
+    z-index: 50;
+}
+
+.nav {
+    flex: 1;
+}
+
+.navSection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-lg);
+}
+
+.sectionLabel {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-sm);
+}
+
+.navItem {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-md);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+    width: 100%;
+}
+
+.navItem:hover {
+    background: var(--bg-glass);
+    color: var(--text-primary);
+}
+
+.navItem.active {
+    color: var(--text-primary);
+}
+
+.navItem.active .navIcon {
+    color: var(--accent-primary);
+}
+
+.activeIndicator {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    box-shadow: 0 0 15px var(--accent-glow);
+}
+
+.navIcon {
+    flex-shrink: 0;
+    transition: color var(--transition-fast);
+}
+
+.navArrow {
+    margin-left: auto;
+    opacity: 0.5;
+    transition: all var(--transition-fast);
+}
+
+.navItem:hover .navArrow {
+    opacity: 1;
+    transform: translateX(2px);
+}
+
+/* Project Context */
+.projectContext {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-sm);
+}
+
+.projectInfo {
+    flex: 1;
+    min-width: 0;
+}
+
+.projectTitle {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.projectType {
+    font-size: 0.75rem;
+    color: var(--accent-primary);
+}
+
+.clearProject {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.clearProject:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--error);
+}
+
+.bottomSection {
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.disclaimer {
+    display: flex;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: var(--radius-md);
+    color: var(--warning);
+}
+
+.disclaimerText {
+    flex: 1;
+}
+
+.disclaimerText strong {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.disclaimerText p {
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: var(--text-muted);
+}
+
+/* Highlighted nav item (ANTIGRAVITY) */
+.navItemHighlight {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(99, 102, 241, 0.15));
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.navItemHighlight:hover {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(99, 102, 241, 0.25));
+    border-color: rgba(168, 85, 247, 0.5);
+}
+
+.navItemHighlight .navIcon {
+    color: #a855f7;
+}
+
+@media (max-width: 1024px) {
+    .sidebar {
+        display: none;
+    }
+}
