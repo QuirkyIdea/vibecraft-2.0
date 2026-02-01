@@ -26,6 +26,11 @@ class ErrorType(str, Enum):
     LOW_CONFIDENCE = "LOW_CONFIDENCE"
     INTERNAL_INCONSISTENCY = "INTERNAL_INCONSISTENCY"
     UNKNOWN_FAILURE = "UNKNOWN_FAILURE"
+    # Draft & Conference error types
+    REFINEMENT_FAILED = "REFINEMENT_FAILED"
+    EXTRACTION_FAILED = "EXTRACTION_FAILED"
+    RECOMMENDATION_FAILED = "RECOMMENDATION_FAILED"
+    INVALID_FILE_TYPE = "INVALID_FILE_TYPE"
 
 
 class FailedStage(str, Enum):
@@ -36,11 +41,18 @@ class FailedStage(str, Enum):
     REASONING = "reasoning"
     VERIFICATION = "verification"
     OUTPUT_GENERATION = "output_generation"
+    # Draft & Conference stages
+    TEXT_EXTRACTION = "text_extraction"
+    FILE_PROCESSING = "file_processing"
+    REFINEMENT = "refinement"
+    RECOMMENDATION = "recommendation"
+    PROCESSING = "processing"
 
 
 class RecommendedAction(str, Enum):
     """Recommended actions on failure."""
     RETRY_WITH_MORE_EVIDENCE = "retry_with_more_evidence"
+    RETRY_WITH_DIFFERENT_INPUT = "retry_with_different_input"
     ADJUST_INPUT = "adjust_input"
     HUMAN_REVIEW = "human_review"
     SYSTEM_DEBUG = "system_debug"

@@ -345,6 +345,28 @@ class DocumentProcessor:
         
         return text
 
+    def extract_text(self, file_path: str) -> str:
+        """
+        Extract text from a file path.
+        
+        This is a convenience method for the draft_conference routes.
+        Returns the extracted text or raises an exception on failure.
+        """
+        # Read file content
+        with open(file_path, 'rb') as f:
+            content = f.read()
+        
+        # Get filename from path
+        filename = Path(file_path).name
+        
+        # Process document
+        result = self.process_document(content, filename)
+        
+        if not result.success:
+            raise ValueError(f"Text extraction failed: {result.error_message}")
+        
+        return result.text or ""
+
     def emit_crash_log(self, operation: str, result: DocumentResult) -> CrashLog:
         """Generate a structured crash log from a failed operation."""
         recommendations = {
