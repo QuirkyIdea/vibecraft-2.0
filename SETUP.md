@@ -29,7 +29,16 @@ pip install -r requirements.txt
 
 #### Configure Environment Variables
 
+**IMPORTANT:** The `.env` file must be saved as **UTF-8 without BOM** to avoid encoding errors.
+
 Create a `.env` file in the `backend` directory:
+
+```bash
+cd backend
+cp .env.example .env
+```
+
+Then edit `.env` with your values:
 
 ```bash
 # backend/.env
@@ -42,6 +51,10 @@ To get your Gemini API key:
 1. Visit https://ai.google.dev/
 2. Click "Get API Key"
 3. Copy your API key and paste it in the `.env` file
+
+**VS Code users:** Ensure your `.env` file encoding is UTF-8:
+- Click on the encoding in the bottom status bar
+- Select "Save with Encoding" → "UTF-8"
 
 #### Start Backend Server
 
@@ -119,6 +132,26 @@ vibecraft-2.0/
 ## 🔧 Troubleshooting
 
 ### Backend Issues
+
+**Problem: UnicodeDecodeError when starting backend**
+```
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff in position 0
+```
+**Solution:** Your `.env` file has incorrect encoding (UTF-16 or BOM)
+```bash
+# Delete the .env file and recreate it
+cd backend
+rm .env
+cp .env.example .env
+# Edit .env with a text editor and ensure it's saved as UTF-8 without BOM
+```
+
+In VS Code:
+1. Open `.env` file
+2. Click encoding indicator in bottom status bar (might show "UTF-16 LE" or "UTF-8 with BOM")
+3. Select "Save with Encoding"
+4. Choose "UTF-8" (not "UTF-8 with BOM")
+5. Save the file
 
 **Problem: ModuleNotFoundError**
 ```bash
