@@ -264,6 +264,13 @@ Return structured claims with:
 
 ---
 
+## 🔧 Draft Refinement Enhancements
+- **Context-aware analysis** that preserves author intent
+- **Targeted, reversible suggestions** with confidence levels
+- **Patent-focused clarity and structure improvements**
+
+---
+
 ## 📁 Source Code Structure
 
 ```
