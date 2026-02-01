@@ -25,15 +25,35 @@ if not exist .env (
     echo [WARNING] .env file not found!
     echo.
     if exist .env.example (
-        echo Creating .env from .env.example...
-        copy .env.example .env >nul
-        echo [CREATED] .env file created
+        echo Creating .env from .env.example with UTF-8 encoding...
+        powershell -Command "Get-Content .env.example -Raw | Set-Content .env -Encoding UTF8"
+        echo [CREATED] .env file created ^(UTF-8^)
         echo.
-        echo IMPORTANT: Please edit .env file and add your GEMINI_API_KEY
+        echo ========================================
+        echo  IMPORTANT: Edit .env with UTF-8 Editor
+        echo ========================================
         echo.
-        notepad .env
+        echo Please add your GEMINI_API_KEY to the .env file
         echo.
-        echo Press any key after saving the .env file...
+        echo RECOMMENDED EDITORS:
+        echo   - VS Code
+        echo   - Notepad++ 
+        echo   - Windows 11 Notepad ^(auto UTF-8^)
+        echo.
+        echo WARNING: Old Notepad may save as UTF-16!
+        echo          This will cause Docker errors.
+        echo.
+        where code >nul 2>&1
+        if not errorlevel 1 (
+            echo Opening in VS Code...
+            code .env
+        ) else (
+            echo Opening in Notepad...
+            echo ^(If deployment fails, re-save .env as UTF-8^)
+            notepad .env
+        )
+        echo.
+        echo After saving, press any key to continue...
         pause >nul
     ) else (
         echo [ERROR] .env.example file not found!
