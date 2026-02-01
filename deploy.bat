@@ -24,43 +24,59 @@ REM Check if .env file exists
 if not exist .env (
     echo [WARNING] .env file not found!
     echo.
-    if exist .env.example (
-        echo Creating .env from .env.example with UTF-8 encoding...
-        powershell -Command "$utf8NoBom = New-Object System.Text.UTF8Encoding $false; $content = [System.IO.File]::ReadAllText('.env.example', $utf8NoBom); [System.IO.File]::WriteAllText('.env', $content, $utf8NoBom)"
-        echo [CREATED] .env file created ^(UTF-8 without BOM^)
+    echo Creating .env file...
+    (
+        echo # Inventix AI - Environment Configuration
+        echo # =======================================
         echo.
-        echo ========================================
-        echo  IMPORTANT: Edit .env with UTF-8 Editor
-        echo ========================================
+        echo # REQUIRED: Google Gemini API Key
+        echo # Get your key from: https://aistudio.google.com/app/apikey
+        echo GEMINI_API_KEY=your_gemini_api_key_here
         echo.
-        echo Please add your GEMINI_API_KEY to the .env file
+        echo # Optional configurations
+        echo GEMINI_MODEL=gemini-1.5-flash
+        echo DEBUG=false
+        echo SECRET_KEY=change-this-to-a-secure-random-string
         echo.
-        echo RECOMMENDED EDITORS:
-        echo   - VS Code
-        echo   - Notepad++ 
-        echo   - Windows 11 Notepad ^(auto UTF-8^)
+        echo # Backend Configuration
+        echo BACKEND_HOST=0.0.0.0
+        echo BACKEND_PORT=8000
         echo.
-        echo WARNING: Old Notepad may save as UTF-16!
-        echo          This will cause Docker errors.
+        echo # JWT Configuration
+        echo JWT_ALGORITHM=HS256
+        echo JWT_EXPIRE_MINUTES=10080
         echo.
-        where code >nul 2>&1
-        if not errorlevel 1 (
-            echo Opening in VS Code...
-            code .env
-        ) else (
-            echo Opening in Notepad...
-            echo ^(If deployment fails, re-save .env as UTF-8^)
-            notepad .env
-        )
+        echo # Google OAuth ^(Optional^)
+        echo GOOGLE_CLIENT_ID=
+        echo GOOGLE_CLIENT_SECRET=
+        echo GOOGLE_REDIRECT_URI=http://localhost:3000/auth/callback
         echo.
-        echo After saving, press any key to continue...
-        pause >nul
+        echo # Frontend Configuration
+        echo NEXT_PUBLIC_API_URL=http://localhost:8000
+        echo NEXT_PUBLIC_APP_NAME=Inventix AI
+    ) > .env
+    echo [CREATED] .env file created
+    echo.
+    echo ========================================
+    echo  IMPORTANT: Add your GEMINI_API_KEY!
+    echo ========================================
+    echo.
+    echo Opening .env file for editing...
+    echo.
+    echo Please replace "your_gemini_api_key_here" with your actual API key
+    echo Get your key from: https://aistudio.google.com/app/apikey
+    echo.
+    where code >nul 2>&1
+    if not errorlevel 1 (
+        echo Opening in VS Code...
+        code .env
     ) else (
-        echo [ERROR] .env.example file not found!
-        echo Please create a .env file with your configuration.
-        pause
-        exit /b 1
+        echo Opening in Notepad...
+        notepad .env
     )
+    echo.
+    echo After saving your API key, press any key to continue...
+    pause >nul
 )
 
 echo [OK] .env file found
