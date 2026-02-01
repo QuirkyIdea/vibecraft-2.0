@@ -26,8 +26,8 @@ if not exist .env (
     echo.
     if exist .env.example (
         echo Creating .env from .env.example with UTF-8 encoding...
-        powershell -Command "Get-Content .env.example -Raw | Set-Content .env -Encoding UTF8"
-        echo [CREATED] .env file created ^(UTF-8^)
+        powershell -Command "$content = Get-Content .env.example -Raw; [System.IO.File]::WriteAllText('.env', $content, [System.Text.UTF8Encoding]::new($false))"
+        echo [CREATED] .env file created ^(UTF-8 without BOM^)
         echo.
         echo ========================================
         echo  IMPORTANT: Edit .env with UTF-8 Editor

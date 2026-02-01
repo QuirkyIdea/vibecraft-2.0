@@ -11,18 +11,21 @@ Write-Host ""
 if (Test-Path .env) {
     Write-Host "[INFO] Checking .env file encoding..." -ForegroundColor Yellow
     
-    # Read and re-save as UTF-8
+    # Read and re-save as UTF-8 without BOM
     $content = Get-Content .env -Raw
-    Set-Content .env -Value $content -Encoding UTF8 -NoNewline
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText(".env", $content, $utf8NoBom)
     
-    Write-Host "[OK] .env file is now UTF-8 encoded" -ForegroundColor Green
+    Write-Host "[OK] .env file is now UTF-8 encoded (without BOM)" -ForegroundColor Green
 } else {
     Write-Host "[WARNING] .env file not found" -ForegroundColor Yellow
     
     if (Test-Path .env.example) {
         Write-Host "[INFO] Creating .env from .env.example..." -ForegroundColor Yellow
-        Get-Content .env.example -Raw | Set-Content .env -Encoding UTF8
-        Write-Host "[CREATED] .env file created (UTF-8)" -ForegroundColor Green
+        $content = Get-Content .env.example -Raw
+        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText(".env", $content, $utf8NoBom)
+        Write-Host "[CREATED] .env file created (UTF-8 without BOM)" -ForegroundColor Green
     } else {
         Write-Host "[ERROR] .env.example not found!" -ForegroundColor Red
         exit 1
