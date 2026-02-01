@@ -13,6 +13,8 @@
 **The Challenge:**
 Researchers and innovators face significant barriers when validating the novelty of their ideas:
 
+
+## INVENTEX -AI 
 1. **Information Overload**: Millions of research papers and patents exist, making manual review impossible
 2. **Expertise Gap**: Understanding patent claims requires legal expertise most researchers lack
 3. **Costly Mistakes**: Filing patents without proper prior art search leads to rejections and wasted resources
@@ -312,7 +314,7 @@ vibecraft-2.0/
 | Phase | Feature | Status |
 |-------|---------|--------|
 | 1 | Backend Foundation & Persistence | ✅ Complete |
-| 2 | Controlled LLM Integration | ✅ Complete |
+| 2 | Controlled SLM Integration | ✅ Complete |
 | 3 | Evidence Retrieval (Semantic Scholar + USPTO) | ✅ Complete |
 | 4 | Similarity Engine & Novelty Classification | ✅ Complete |
 | 5 | Comparative Analysis & Summarization | ✅ Complete |
