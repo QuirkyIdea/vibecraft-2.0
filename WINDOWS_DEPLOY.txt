@@ -1,0 +1,52 @@
+# 🚀 DEPLOY INVENTIX AI - WINDOWS
+
+## Fastest Way to Deploy (3 Steps)
+
+### Step 1: Make sure Docker Desktop is running
+Look for Docker icon in system tray (bottom-right of screen)
+
+### Step 2: Double-click `deploy.bat`
+
+### Step 3: Add your API key when Notepad opens
+```
+GEMINI_API_KEY=your_actual_api_key_here
+```
+Save and close Notepad.
+
+---
+
+## ✅ That's It!
+
+Your app will open automatically at: **http://localhost:3000**
+
+---
+
+## 🛠️ Other Scripts
+
+- **`deploy.bat`** - Start everything
+- **`stop.bat`** - Stop everything  
+- **`logs.bat`** - View logs
+- **`status.bat`** - Check status
+
+---
+
+## 📖 Need More Help?
+
+Read: **`WINDOWS_START_HERE.md`**
+
+---
+
+## 💻 Or Use CMD Directly
+
+```cmd
+cd G:\INVENTIX
+copy .env.example .env
+notepad .env
+docker-compose up -d
+```
+
+Access at: http://localhost:3000
+
+---
+
+**Get Gemini API Key**: https://aistudio.google.com/

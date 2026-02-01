@@ -1,0 +1,33 @@
+# Inventix AI Backend Dependencies
+# =================================
+
+# Core Framework
+fastapi
+uvicorn[standard]
+python-dotenv
+
+# Google Gemini
+google-generativeai
+
+# Data Validation
+pydantic
+pydantic-settings
+
+# HTTP Client
+httpx
+requests
+
+# Utilities
+python-multipart
+
+# Document Processing
+pypdf
+python-docx
+
+# Legacy PDF Processing (fallback)
+pymupdf
+
+# Authentication
+python-jose[cryptography]
+passlib[bcrypt]
+
