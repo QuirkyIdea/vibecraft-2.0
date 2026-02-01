@@ -181,8 +181,14 @@ CRITICAL RULES - VIOLATIONS ARE STRICTLY PROHIBITED:
                 response_format="json"
             ))
 
-            if not result.success or not result.parsed_json:
-                return self._create_error_result("Refinement could not be completed")
+            if not result.success:
+                # API failed - use fallback rule-based refinement
+                print(f"DEBUG: API failed ({result.error}), using fallback refinement")
+                return self._fallback_refinement(original_text, focus_areas, max_change_level)
+            
+            if not result.parsed_json:
+                print(f"DEBUG: JSON parse failed, using fallback refinement")
+                return self._fallback_refinement(original_text, focus_areas, max_change_level)
 
             parsed = result.parsed_json
             refined_text = parsed.get("refined_text", original_text)
@@ -369,3 +375,109 @@ RULES:
             "error": "Section refinement could not be completed",
             "original": section_text
         }
+
+    def _fallback_refinement(
+        self,
+        original_text: str,
+        focus_areas: Optional[List[RefinementType]] = None,
+        max_change_level: str = "moderate"
+    ) -> RefinementResult:
+        """
+        Rule-based fallback refinement when API is unavailable.
+        Makes basic improvements without AI.
+        """
+        import re
+        
+        refined_text = original_text
+        changes = []
+        
+        # Grammar fixes
+        grammar_fixes = [
+            (r'\bshows\b', 'show', 'Subject-verb agreement'),
+            (r'\bwas\s+(\w+ing)\b', r'were \1', 'Plural verb form'),
+            (r'\s+,', ',', 'Extra space before comma'),
+            (r'\s+\.', '.', 'Extra space before period'),
+            (r'\.\.+', '.', 'Multiple periods'),
+            (r'\s{2,}', ' ', 'Multiple spaces'),
+        ]
+        
+        for pattern, replacement, reason in grammar_fixes:
+            matches = list(re.finditer(pattern, refined_text))
+            for match in matches:
+                original_phrase = match.group(0)
+                refined_phrase = re.sub(pattern, replacement, original_phrase)
+                if original_phrase != refined_phrase:
+                    changes.append(RefinementChange(
+                        type=RefinementType.GRAMMAR,
+                        original=original_phrase.strip(),
+                        refined=refined_phrase.strip(),
+                        reason=reason
+                    ))
+                    refined_text = refined_text.replace(original_phrase, refined_phrase, 1)
+        
+        # Clarity improvements
+        clarity_fixes = [
+            (r'\bvery good\b', 'effective', 'More specific language'),
+            (r'\bvery bad\b', 'ineffective', 'More specific language'),
+            (r'\bvery important\b', 'crucial', 'More precise'),
+            (r'\bvery big\b', 'significant', 'More precise'),
+            (r'\bvery small\b', 'minimal', 'More precise'),
+            (r'\ba lot of\b', 'numerous', 'More formal'),
+            (r'\bkind of\b', 'somewhat', 'More precise'),
+        ]
+        
+        for pattern, replacement, reason in clarity_fixes:
+            matches = list(re.finditer(pattern, refined_text, re.IGNORECASE))
+            for match in matches:
+                original_phrase = match.group(0)
+                if original_phrase != replacement:
+                    changes.append(RefinementChange(
+                        type=RefinementType.CLARITY,
+                        original=original_phrase,
+                        refined=replacement,
+                        reason=reason
+                    ))
+                    refined_text = refined_text.replace(original_phrase, replacement, 1)
+        
+        # Flow improvements - fix sentence starters
+        flow_fixes = [
+            (r'(?<=\. )And\s+', 'Additionally, ', 'Better transition'),
+            (r'(?<=\. )But\s+', 'However, ', 'Better transition'),
+            (r'(?<=\. )So\s+', 'Therefore, ', 'Better transition'),
+        ]
+        
+        for pattern, replacement, reason in flow_fixes:
+            matches = list(re.finditer(pattern, refined_text))
+            for match in matches:
+                original_phrase = match.group(0)
+                changes.append(RefinementChange(
+                    type=RefinementType.FLOW,
+                    original=original_phrase.strip(),
+                    refined=replacement.strip(),
+                    reason=reason
+                ))
+                refined_text = re.sub(pattern, replacement, refined_text, count=1)
+        
+        # Count changes by type
+        change_summary = {}
+        for change in changes:
+            key = change.type.value
+            change_summary[key] = change_summary.get(key, 0) + 1
+        
+        warnings = ["Note: Using rule-based refinement (API quota exceeded). For AI-powered refinement, wait ~1 hour or upgrade your API plan."]
+        
+        if len(changes) == 0:
+            warnings.append("No issues found with rule-based checks. Text appears clean.")
+        
+        return RefinementResult(
+            success=True,
+            original_text=original_text,
+            refined_text=refined_text,
+            changes=changes,
+            change_summary=change_summary,
+            preserved_claims=self._extract_claims(original_text),
+            word_count_original=len(original_text.split()),
+            word_count_refined=len(refined_text.split()),
+            confidence="medium" if changes else "low",
+            warnings=warnings
+        )

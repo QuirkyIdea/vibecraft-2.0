@@ -93,8 +93,23 @@ class SLMEngine:
                 # Generate response
                 response = self.model.generate_content(full_prompt)
                 
+                # Check if response was blocked
+                if not response or not response.text:
+                    error_detail = "No response from Gemini API"
+                    if hasattr(response, 'prompt_feedback'):
+                        error_detail = f"Response blocked: {response.prompt_feedback}"
+                    print(f"DEBUG SLM: {error_detail}")
+                    return SLMResponse(
+                        success=False,
+                        raw_text="",
+                        parsed_json=None,
+                        error=error_detail,
+                        model_used=settings.gemini_model
+                    )
+                
                 # Extract text
                 raw_text = response.text.strip()
+                print(f"DEBUG SLM: Got response, length={len(raw_text)}")
                 
                 # Parse JSON if required
                 parsed_json = None
@@ -110,12 +125,15 @@ class SLMEngine:
                         raw_text = raw_text.strip()
                         
                         parsed_json = json.loads(raw_text)
+                        print(f"DEBUG SLM: JSON parsed successfully")
                     except json.JSONDecodeError as e:
+                        print(f"DEBUG SLM: JSON parse failed: {str(e)}")
+                        print(f"DEBUG SLM: Raw text: {raw_text[:500]}")
                         return SLMResponse(
                             success=False,
                             raw_text=raw_text,
                             parsed_json=None,
-                            error=f"JSON parsing failed: {str(e)}",
+                            error=f"JSON parsing failed: {str(e)}. Raw: {raw_text[:200]}",
                             model_used=settings.gemini_model
                         )
                 
@@ -129,9 +147,11 @@ class SLMEngine:
                 
             except Exception as e:
                 error_str = str(e)
+                print(f"DEBUG SLM: Exception occurred: {error_str}")
                 # Check if it's a rate limit error (429)
                 if "429" in error_str and attempt < max_retries - 1:
                     # Wait and retry with exponential backoff
+                    print(f"DEBUG SLM: Rate limited, retrying in {retry_delay * (2 ** attempt)}s")
                     await asyncio.sleep(retry_delay * (2 ** attempt))
                     continue
                     

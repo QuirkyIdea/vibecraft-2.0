@@ -23,6 +23,7 @@ python-multipart
 # Document Processing
 pypdf
 python-docx
+reportlab
 
 # Legacy PDF Processing (fallback)
 pymupdf
