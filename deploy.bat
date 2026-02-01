@@ -3,8 +3,10 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 echo.
 echo =================================================
-echo Safe deploy.bat - Inventix AI Deployment
+echo    Inventix AI - Docker Deployment Script
 echo =================================================
+echo.
+echo Starting deployment process...
 echo.
 
 REM Check if .env exists and read GEMINI_API_KEY from it
@@ -28,7 +30,9 @@ if "%GEMINI_API_KEY%"=="" (
     set /p "USER_KEY=Please paste your GEMINI_API_KEY and press Enter: "
     if "%USER_KEY%"=="" (
         echo ERROR: No key provided. .env will not be created. Re-run deploy.bat when you have the key.
-        pause
+        echo.
+        echo Press any key to exit...
+        pause > nul
         exit /b 1
     )
     set "GEMINI_API_KEY=%USER_KEY%"
@@ -50,17 +54,13 @@ if "%GEMINI_API_KEY%"=="" (
         echo NEXT_PUBLIC_API_URL=http://localhost:8000
         echo NEXT_PUBLIC_APP_NAME=Inventix AI
     )
-    echo .env created successfully (ASCII/UTF-8 compatible).
-    echo DRY-RUN OK: GEMINI_API_KEY set in .env.
-    echo First line of .env:
-    set "first_line_shown="
-    for /f "delims=" %%L in (.env) do (
-        if not defined first_line_shown (
-            echo    %%L
-            set "first_line_shown=1"
-        )
-    )
-    pause
+    echo.
+    echo .env created successfully!
+    echo.
+    echo Now run deploy.bat again to start Docker services.
+    echo.
+    echo Press any key to exit...
+    pause > nul
     exit /b 0
 )
 
@@ -68,7 +68,9 @@ REM If key exists in .env, confirm not empty
 if "%GEMINI_API_KEY%"=="" (
     echo ERROR: GEMINI_API_KEY in .env is empty.
     echo Please open .env and set GEMINI_API_KEY, then re-run deploy.bat.
-    pause
+    echo.
+    echo Press any key to exit...
+    pause > nul
     exit /b 1
 )
 
@@ -83,7 +85,9 @@ docker-compose up -d --build
 if errorlevel 1 (
     echo.
     echo ERROR: Docker failed to start. Check Docker Desktop is running.
-    pause
+    echo.
+    echo Press any key to exit...
+    pause > nul
     exit /b 1
 )
 echo.
@@ -93,4 +97,11 @@ echo Frontend: http://localhost:3000
 echo Backend: http://localhost:8000
 echo =================================================
 echo.
-pause
+echo Press any key to exit...
+pause > nul
+goto :eof
+
+:eof
+echo.
+echo Script finished. Press any key to exit...
+pause > nul
