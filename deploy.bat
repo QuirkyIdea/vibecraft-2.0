@@ -1,18 +1,19 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-REM =================================================
-REM Safe deploy.bat — prompts for GEMINI_API_KEY (interactive)
-REM Writes ASCII-only .env and blocks deployment if missing
-REM =================================================
+echo.
+echo =================================================
+echo Safe deploy.bat - Inventix AI Deployment
+echo =================================================
+echo.
 
-REM If .env exists, read GEMINI_API_KEY from it
+REM Check if .env exists and read GEMINI_API_KEY from it
+set "GEMINI_API_KEY="
 if exist .env (
-    for /f "tokens=1* delims==" %%A in ('findstr /B /R /C:"^GEMINI_API_KEY=" .env 2^>nul') do (
+    echo Checking existing .env file...
+    for /f "tokens=1* delims==" %%A in ('findstr /B "GEMINI_API_KEY=" .env 2^>nul') do (
         set "GEMINI_API_KEY=%%B"
     )
-) else (
-    set "GEMINI_API_KEY="
 )
 
 REM If no key found, prompt the user (interactive)
@@ -71,6 +72,25 @@ if "%GEMINI_API_KEY%"=="" (
     exit /b 1
 )
 
-echo GEMINI_API_KEY detected in .env. Ready to start services.
-echo To actually start Docker, re-run deploy.bat after confirming the key.
+echo.
+echo =================================================
+echo GEMINI_API_KEY detected in .env!
+echo =================================================
+echo.
+echo Starting Docker services...
+echo.
+docker-compose up -d --build
+if errorlevel 1 (
+    echo.
+    echo ERROR: Docker failed to start. Check Docker Desktop is running.
+    pause
+    exit /b 1
+)
+echo.
+echo =================================================
+echo Deployment successful!
+echo Frontend: http://localhost:3000
+echo Backend: http://localhost:8000
+echo =================================================
+echo.
 pause
