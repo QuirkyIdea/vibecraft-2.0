@@ -28,7 +28,7 @@ class SLMRequest(BaseModel):
     prompt: str
     system_prompt: Optional[str] = None
     response_format: str = "json"  # "json" or "text"
-    max_tokens: int = 2048
+    max_tokens: int = 8192  # Increased default
     temperature: float = 0.3  # Lower for more deterministic outputs
 
 
@@ -60,7 +60,7 @@ class SLMEngine:
                 "temperature": 0.3,
                 "top_p": 0.95,
                 "top_k": 40,
-                "max_output_tokens": 2048,
+                "max_output_tokens": 8192,  # Increased for longer documents
             },
             safety_settings=[
                 {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
